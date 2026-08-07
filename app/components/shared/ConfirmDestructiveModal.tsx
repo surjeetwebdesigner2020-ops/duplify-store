@@ -10,6 +10,9 @@
   disabled?: boolean;
 }
 
+import { useEffect } from "react";
+import { useFetcher, useRevalidator } from "react-router";
+
 // Polaris web components expose modal show/hide via command/commandFor.
 // Confirm uses a hidden form + requestSubmit — associating via the HTML
 // `form` attribute on s-button was unreliable and hid the primary action.
@@ -24,6 +27,15 @@ export function ConfirmDestructiveModal({
   disabled = false,
 }: ConfirmDestructiveModalProps) {
   const formId = `${id}-form`;
+  const cancelButtonId = `${id}-cancel`;
+  const fetcher = useFetcher<{ ok: boolean }>();
+  const revalidator = useRevalidator();
+
+  useEffect(() => {
+    if (fetcher.state !== "idle" || !fetcher.data?.ok) return;
+    document.getElementById(cancelButtonId)?.click();
+    revalidator.revalidate();
+  }, [cancelButtonId, fetcher.data, fetcher.state, revalidator]);
 
   return (
     <>
@@ -37,7 +49,7 @@ export function ConfirmDestructiveModal({
         {triggerLabel}
       </s-button>
 
-      <form id={formId} method="post" action={formAction} hidden />
+      <fetcher.Form id={formId} method="post" action={formAction} hidden />
 
       <s-modal id={id} heading={heading}>
         <s-paragraph>{message}</s-paragraph>
@@ -45,6 +57,7 @@ export function ConfirmDestructiveModal({
           slot="primary-action"
           tone="critical"
           variant="primary"
+          {...(fetcher.state !== "idle" ? { loading: true } : {})}
           onClick={() => {
             const form = document.getElementById(
               formId,
@@ -54,7 +67,12 @@ export function ConfirmDestructiveModal({
         >
           {confirmLabel}
         </s-button>
-        <s-button slot="secondary-actions" command="--hide" commandFor={id}>
+        <s-button
+          id={cancelButtonId}
+          slot="secondary-actions"
+          command="--hide"
+          commandFor={id}
+        >
           Cancel
         </s-button>
       </s-modal>

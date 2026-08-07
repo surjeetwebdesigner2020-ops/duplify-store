@@ -1,5 +1,4 @@
 import type { ActionFunctionArgs } from "react-router";
-import { redirect } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
@@ -18,7 +17,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     },
   });
   if (!connection) {
-    return redirect("/app/connect");
+    return { ok: false as const, error: "Connection not found" };
   }
 
   // Soft-disconnect: archive the pair so it disappears from Connected stores.
@@ -28,5 +27,5 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     data: { status: "ARCHIVED" },
   });
 
-  return redirect("/app/connect");
+  return { ok: true as const };
 };

@@ -464,6 +464,22 @@ export default function Overview() {
   const [limitationsDismissed, setLimitationsDismissed] = useState(false);
   const [themeSourceId, setThemeSourceId] = useState("");
 
+  useEffect(() => {
+    if (!connections.some((connection) => connection.status === "PENDING")) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      if (revalidator.state === "idle") revalidator.revalidate();
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [connections, revalidator]);
+
+  useEffect(() => {
+    if (!storeConnectionId && readyConnections[0]) {
+      setStoreConnectionId(readyConnections[0].id);
+    }
+  }, [readyConnections, storeConnectionId]);
+
   const selectedResources =
     type === "CUSTOM" ? resources : (TYPE_TO_RESOURCES[type] ?? []);
   // READY pairs are never blocked by install/permission banners on Overview.
@@ -562,7 +578,7 @@ export default function Overview() {
       </s-section>
 
       {hasReadyConnection && (
-        <s-section heading="Start migration">
+        <s-section id="start-migration" heading="Start migration">
           <Form method="post">
             <s-stack direction="block" gap="base">
               <s-paragraph>

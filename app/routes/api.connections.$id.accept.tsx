@@ -13,8 +13,9 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     return { ok: false as const, error: "Missing connection id" };
   }
 
-  return acceptStoreConnection({
+  const result = await acceptStoreConnection({
     connectionId,
     actingShopId: shop.id,
   });
+  return result.ok ? { ...result, connectionId } : result;
 };

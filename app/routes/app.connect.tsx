@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { LoaderFunctionArgs } from "react-router";
-import { useFetcher, useLoaderData, useRevalidator } from "react-router";
+import {
+  useFetcher,
+  useLoaderData,
+  useNavigate,
+  useRevalidator,
+} from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -17,10 +22,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   });
 
   const connections = await listConnectionsForOwner(shop.id);
+  const isCompanion =
+    !connections.some((connection) => connection.ownerShopId === shop.id) &&
+    connections.some((connection) => connection.ownerShopId !== shop.id);
 
   return {
+    apiKey: process.env.SHOPIFY_API_KEY || "",
     currentShopId: shop.id,
     currentShopDomain: shop.shopDomain,
+    isCompanion,
     connections: connections.map((c) => ({
       id: c.id,
       source: c.sourceShop.shopDomain,
@@ -33,20 +43,33 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function ConnectStores() {
-  const { currentShopId, currentShopDomain, connections } =
+  const {
+    apiKey,
+    currentShopId,
+    currentShopDomain,
+    isCompanion,
+    connections,
+  } =
     useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
   const [otherShop, setOtherShop] = useState("");
   const [copiedInstallUrl, setCopiedInstallUrl] = useState(false);
+  const [copiedApprovalId, setCopiedApprovalId] = useState<string | null>(null);
   // DESTINATION = import into this store; SOURCE = export from this store
   const [currentRole, setCurrentRole] = useState<"DESTINATION" | "SOURCE">(
     "DESTINATION",
   );
   const installPair = useFetcher<typeof installPairAction>();
-  const decision = useFetcher<{ ok: boolean; error?: string }>();
+  const decision = useFetcher<{
+    ok: boolean;
+    error?: string;
+    connectionId?: string;
+  }>();
   const isPairing = installPair.state !== "idle";
   const shopify = useAppBridge();
+  const navigate = useNavigate();
   const wasPairing = useRef(false);
+  const wasDeciding = useRef(false);
 
   useEffect(() => {
     if (installPair.state !== "idle") {
@@ -67,22 +90,54 @@ export default function ConnectStores() {
   }, [installPair.state, installPair.data, revalidator, shopify]);
 
   useEffect(() => {
-    if (decision.state !== "idle" || !decision.data) return;
+    if (decision.state !== "idle") {
+      wasDeciding.current = true;
+      return;
+    }
+    if (!wasDeciding.current || !decision.data) return;
+    wasDeciding.current = false;
     if (decision.data.ok) {
-      shopify.toast.show("Connection updated");
+      shopify.toast.show(
+        isCompanion
+          ? "Connection approved. Return to the main store to start migration."
+          : "Connection updated",
+      );
+      if (decision.data.connectionId && !isCompanion) {
+        navigate(
+          `/app?connectionId=${decision.data.connectionId}#start-migration`,
+        );
+        return;
+      }
       revalidator.revalidate();
     } else if (decision.data.error) {
       shopify.toast.show(decision.data.error, { isError: true });
     }
-  }, [decision.state, decision.data, revalidator, shopify]);
+  }, [
+    decision.state,
+    decision.data,
+    isCompanion,
+    navigate,
+    revalidator,
+    shopify,
+  ]);
+
+  useEffect(() => {
+    if (!connections.some((connection) => connection.status === "PENDING")) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      if (revalidator.state === "idle") revalidator.revalidate();
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [connections, revalidator]);
 
   const otherHandle = otherShop
     .trim()
     .toLowerCase()
     .replace(/\.myshopify\.com$/, "");
   const otherInstallHref = otherHandle
-    ? `https://admin.shopify.com/store/${otherHandle}/oauth/install?client_id=17baeffee1331390a337b79633f40149`
-    : "https://admin.shopify.com/oauth/install?client_id=17baeffee1331390a337b79633f40149";
+    ? `https://admin.shopify.com/store/${otherHandle}/oauth/install?client_id=${encodeURIComponent(apiKey)}`
+    : `https://admin.shopify.com/oauth/install?client_id=${encodeURIComponent(apiKey)}`;
   const installModalId = "connect-install-url-modal";
 
   async function copyOtherInstallUrl() {
@@ -98,40 +153,39 @@ export default function ConnectStores() {
     }
   }
 
-  const sourceLabel =
-    currentRole === "DESTINATION" ? otherShop || "—" : currentShopDomain;
-  const destinationLabel =
-    currentRole === "DESTINATION" ? currentShopDomain : otherShop || "—";
+  async function copyApprovalUrl(url: string, connectionId: string) {
+    await navigator.clipboard.writeText(url);
+    setCopiedApprovalId(connectionId);
+    window.setTimeout(() => setCopiedApprovalId(null), 2000);
+  }
 
   return (
-    <s-page heading="Import / Export" inlineSize="large">
-      <s-section heading="Choose what you want">
+    <s-page
+      heading={isCompanion ? "Connection request" : "Import / Export"}
+      inlineSize="large"
+    >
+      {!isCompanion && (
+      <s-section heading="Connect another Shopify store">
         <s-stack direction="block" gap="base">
-          <s-paragraph>
-            <s-text type="strong">Import</s-text> brings data from another store
-            into this store.
-            <br />
-            <s-text type="strong">Export</s-text> sends this store’s data to
-            another store.
-          </s-paragraph>
-          <s-paragraph color="subdued">
-            Both stores must install Duplify. After you request a connection,
-            the other store must open Duplify and Accept before migration can
-            start.
-          </s-paragraph>
+          <s-stack direction="block" gap="small-200">
+            <s-text type="strong">1. What do you want to do?</s-text>
+            <s-text color="subdued">
+              Choose where this store's data should move.
+            </s-text>
+          </s-stack>
 
           <s-stack direction="inline" gap="base">
             <s-button
               variant={currentRole === "DESTINATION" ? "primary" : "secondary"}
               onClick={() => setCurrentRole("DESTINATION")}
             >
-              Import
+              Import into this store
             </s-button>
             <s-button
               variant={currentRole === "SOURCE" ? "primary" : "secondary"}
               onClick={() => setCurrentRole("SOURCE")}
             >
-              Export
+              Export from this store
             </s-button>
           </s-stack>
 
@@ -141,12 +195,11 @@ export default function ConnectStores() {
             borderRadius="base"
             background="base"
           >
-            <s-stack direction="block" gap="small-200">
-              <s-text type="strong">Source (where data comes from)</s-text>
-              <s-text>{sourceLabel || "—"}</s-text>
-              <s-text type="strong">Destination (where data goes)</s-text>
-              <s-text>{destinationLabel || "—"}</s-text>
-            </s-stack>
+            <s-text>
+              {currentRole === "DESTINATION"
+                ? `Data will be copied from the other store into ${currentShopDomain}.`
+                : `Data will be copied from ${currentShopDomain} into the other store.`}
+            </s-text>
           </s-box>
 
           <installPair.Form
@@ -155,29 +208,36 @@ export default function ConnectStores() {
           >
             <input type="hidden" name="currentRole" value={currentRole} />
             <s-stack direction="block" gap="base">
+              <s-stack direction="block" gap="small-200">
+                <s-text type="strong">2. Enter the other store</s-text>
+                <s-text color="subdued">
+                  Use its permanent Shopify address, for example
+                  other-store.myshopify.com.
+                </s-text>
+              </s-stack>
               <s-text-field
                 name="otherShopDomain"
-                label={
-                  currentRole === "DESTINATION"
-                    ? "Source store (copy from)"
-                    : "Destination store (copy to)"
-                }
+                label="Other store domain"
                 placeholder="other-store.myshopify.com"
                 value={otherShop}
                 onChange={(e) => setOtherShop(e.currentTarget.value)}
               ></s-text-field>
 
               {otherHandle && (
-                <s-paragraph>
-                  First install Duplify on the other store:{" "}
+                <s-stack direction="block" gap="small-200">
+                  <s-text type="strong">3. Install and connect</s-text>
+                  <s-text color="subdued">
+                    Copy the install link, open it while signed into the other
+                    store, then return here and send the request.
+                  </s-text>
                   <s-button
-                    variant="tertiary"
+                    variant="primary"
                     command="--show"
                     commandFor={installModalId}
                   >
-                    Copy install URL
+                    Get install link
                   </s-button>
-                </s-paragraph>
+                </s-stack>
               )}
 
               {installPair.data && !installPair.data.ok && (
@@ -185,15 +245,15 @@ export default function ConnectStores() {
                   <s-paragraph>{installPair.data.error}</s-paragraph>
                   {"needsInstall" in installPair.data &&
                     installPair.data.needsInstall && (
-                      <s-paragraph>
+                      <s-box paddingBlockStart="small-200">
                         <s-button
-                          variant="tertiary"
+                          variant="primary"
                           command="--show"
                           commandFor={installModalId}
                         >
-                          Copy install URL
+                          Get install link
                         </s-button>
-                      </s-paragraph>
+                      </s-box>
                     )}
                 </s-banner>
               )}
@@ -201,12 +261,33 @@ export default function ConnectStores() {
                 <s-banner
                   tone="success"
                   heading={
-                    "pending" in installPair.data && installPair.data.pending
+                    "needsInstall" in installPair.data &&
+                    installPair.data.needsInstall
+                      ? "Install Duplify on the other store"
+                      : "pending" in installPair.data &&
+                          installPair.data.pending
                       ? "Waiting for the other store"
                       : "Stores connected"
                   }
                 >
-                  {"pending" in installPair.data && installPair.data.pending ? (
+                  {"needsInstall" in installPair.data &&
+                  installPair.data.needsInstall ? (
+                    <s-stack direction="block" gap="small-200">
+                      <s-text>
+                        The request is saved. Share the install link with the
+                        other store owner; this page will update automatically
+                        after they approve.
+                      </s-text>
+                      <s-button
+                        variant="primary"
+                        command="--show"
+                        commandFor={installModalId}
+                      >
+                        Get install link
+                      </s-button>
+                    </s-stack>
+                  ) : "pending" in installPair.data &&
+                    installPair.data.pending ? (
                     <s-paragraph>
                       Open Duplify on the other store, go to Import / Export,
                       and click Accept.
@@ -220,14 +301,17 @@ export default function ConnectStores() {
                 variant="primary"
                 {...(isPairing ? { loading: true } : {})}
               >
-                Request connection
+                Send connection request
               </s-button>
             </s-stack>
           </installPair.Form>
         </s-stack>
       </s-section>
+      )}
 
-      <s-section heading="Connected stores">
+      <s-section
+        heading={isCompanion ? "Approve your connection" : "Connected stores"}
+      >
         {connections.length === 0 ? (
           <EmptyState
             heading="No stores connected yet"
@@ -237,10 +321,18 @@ export default function ConnectStores() {
           <s-stack direction="block" gap="base">
             {connections.map((c) => {
               const modalId = `disconnect-modal-${c.id}`;
+              const approvalModalId = `approval-link-modal-${c.id}`;
               const canAccept =
                 c.status === "PENDING" && c.ownerShopId !== currentShopId;
               const isWaiting =
                 c.status === "PENDING" && c.ownerShopId === currentShopId;
+              const otherStoreDomain =
+                c.source === currentShopDomain ? c.destination : c.source;
+              const otherStoreHandle = otherStoreDomain.replace(
+                /\.myshopify\.com$/,
+                "",
+              );
+              const otherStoreAppUrl = `https://admin.shopify.com/store/${otherStoreHandle}/apps/dublicate-store`;
               return (
                 <s-box
                   key={c.id}
@@ -267,20 +359,41 @@ export default function ConnectStores() {
                           >
                             <StatusBadge status={c.status} />
                             {isWaiting && (
-                              <s-text color="subdued">
-                                Waiting for the other store to Accept
+                              <s-text>
+                                Approval needed from {otherStoreDomain}
                               </s-text>
                             )}
-                            {c.status === "READY" && (
+                            {canAccept && (
+                              <s-text>
+                                {otherStoreDomain} sent this request. Review it
+                                now.
+                              </s-text>
+                            )}
+                            {c.status === "READY" && !isCompanion && (
                               <s-link href={`/app?connectionId=${c.id}`}>
                                 Start import
                               </s-link>
+                            )}
+                            {c.status === "READY" && isCompanion && (
+                              <s-text>
+                                Connected. Migration is managed from the main
+                                store.
+                              </s-text>
                             )}
                           </s-stack>
                         </s-stack>
                       </s-grid-item>
                       <s-grid-item>
                         <s-stack direction="inline" gap="small-200">
+                          {isWaiting && (
+                            <s-button
+                              command="--show"
+                              commandFor={approvalModalId}
+                              variant="primary"
+                            >
+                              Share approval link
+                            </s-button>
+                          )}
                           {canAccept && (
                             <>
                               <decision.Form
@@ -288,7 +401,7 @@ export default function ConnectStores() {
                                 action={`/api/connections/${c.id}/accept`}
                               >
                                 <s-button type="submit" variant="primary">
-                                  Accept
+                                  Approve connection
                                 </s-button>
                               </decision.Form>
                               <decision.Form
@@ -309,6 +422,43 @@ export default function ConnectStores() {
                             triggerLabel="Disconnect"
                             formAction={`/api/connections/${c.id}/disconnect`}
                           />
+                          {isWaiting && (
+                            <s-modal
+                              id={approvalModalId}
+                              heading={`Ask ${otherStoreHandle} to approve`}
+                            >
+                              <s-stack direction="block" gap="base">
+                                <s-paragraph>
+                                  Send this link to the owner of
+                                  {` ${otherStoreDomain}`}. They must sign in,
+                                  open Duplify, and approve the connection.
+                                </s-paragraph>
+                                <s-text-field
+                                  label="Approval link"
+                                  value={otherStoreAppUrl}
+                                  readOnly
+                                />
+                              </s-stack>
+                              <s-button
+                                slot="primary-action"
+                                variant="primary"
+                                onClick={() => {
+                                  void copyApprovalUrl(otherStoreAppUrl, c.id);
+                                }}
+                              >
+                                {copiedApprovalId === c.id
+                                  ? "Copied"
+                                  : "Copy approval link"}
+                              </s-button>
+                              <s-button
+                                slot="secondary-actions"
+                                command="--hide"
+                                commandFor={approvalModalId}
+                              >
+                                Close
+                              </s-button>
+                            </s-modal>
+                          )}
                         </s-stack>
                       </s-grid-item>
                     </s-grid>

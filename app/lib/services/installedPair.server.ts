@@ -2,7 +2,7 @@ import db from "../../db.server";
 import { isValidShopDomain, normalizeShopDomain } from "../shopify/shop-domain";
 
 export type InstallPairResult =
-  | { ok: true; pending: boolean }
+  | { ok: true; pending: boolean; needsInstall?: boolean }
   | { ok: false; error: string; needsInstall?: boolean; installShopDomain?: string };
 
 /**
@@ -39,22 +39,28 @@ export async function connectViaInstalledApp(params: {
     };
   }
 
-  const otherShop = await db.shop.findUnique({
+  let otherShop = await db.shop.findUnique({
     where: { shopDomain: otherDomain },
   });
 
-  if (
+  const needsInstall =
     !otherShop ||
     !otherShop.isActive ||
     !otherShop.accessTokenEncrypted ||
-    otherShop.uninstalledAt
-  ) {
-    return {
-      ok: false,
-      needsInstall: true,
-      installShopDomain: otherDomain,
-      error: `Install Duplify Store on ${otherDomain} first, open the app once, then come back and connect.`,
-    };
+    Boolean(otherShop.uninstalledAt);
+
+  // Save the invitation before the second store installs. When that merchant
+  // opens Duplify, afterAuth activates this placeholder and companion mode can
+  // immediately show the pending approval request.
+  if (!otherShop) {
+    otherShop = await db.shop.create({
+      data: {
+        shopDomain: otherDomain,
+        accessTokenEncrypted: "",
+        scope: "",
+        isActive: false,
+      },
+    });
   }
 
   const sourceShopId =
@@ -97,7 +103,11 @@ export async function connectViaInstalledApp(params: {
     },
   });
 
-  return { ok: true, pending: nextStatus === "PENDING" };
+  return {
+    ok: true,
+    pending: nextStatus === "PENDING",
+    ...(needsInstall ? { needsInstall: true } : {}),
+  };
 }
 
 export async function acceptStoreConnection(params: {
