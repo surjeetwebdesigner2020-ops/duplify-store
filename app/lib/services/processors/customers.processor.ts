@@ -23,6 +23,29 @@ function normalizeCustomerPayload(
   return { ...raw, addresses: [] };
 }
 
+// Small retry helper for transient network/HTTP errors (rate limits, timeouts, 5xx)
+const RETRY_ATTEMPTS = 3;
+function isRetriableError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message || "";
+  return /ECONNRESET|ETIMEDOUT|429|502|503|504|ECONNREFUSED|ENOTFOUND|timeout|timed out|Failed to fetch|Network request failed/i.test(msg);
+}
+
+async function retry<T>(fn: () => Promise<T>, attempts = RETRY_ATTEMPTS): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (!isRetriableError(e) || i === attempts - 1) break;
+      const delay = 500 * Math.pow(2, i); // 500ms, 1000ms, 2000ms
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 async function fetchCustomersByPages(
   sourceAdmin: ReturnType<typeof createAdminClient>,
 ): Promise<CustomerBulkPayload[]> {
