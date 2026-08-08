@@ -189,10 +189,12 @@ async function processCustomerItem(
 
   let existingDestinationId: string | null = null;
   try {
-    const existing = await destAdmin.graphql<CustomerByEmailResponse>(
-      CUSTOMER_BY_EMAIL_QUERY,
-      { query: `email:'${customer.email.replace(/'/g, "")}'` },
-      5,
+    const existing = await retry(() =>
+      destAdmin.graphql<CustomerByEmailResponse>(
+        CUSTOMER_BY_EMAIL_QUERY,
+        { query: `email:'${customer.email.replace(/'/g, "")}'` },
+        5,
+      ),
     );
     existingDestinationId = existing.customers.edges[0]?.node.id ?? null;
   } catch (error) {
