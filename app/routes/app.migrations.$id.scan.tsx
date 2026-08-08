@@ -218,6 +218,10 @@ export default function MigrationScan() {
       failureReason,
     );
 
+  const isProtectedCustomerDataError = /not approved to access the Customer object|protected-customer-data|ACCESS_DENIED/i.test(
+    failureReason,
+  );
+
   return (
     <s-page heading="Pre-migration scan" inlineSize="large">
       <s-section heading="Migration">
@@ -288,32 +292,54 @@ export default function MigrationScan() {
               }
             >
               <s-paragraph>
-                {isAuthFailure
+                {isProtectedCustomerDataError
+                  ? `This app is not approved to access customer data on Shopify. Customer exports are blocked until the app is approved for protected customer data access.`
+                  : isAuthFailure
                   ? `One of the stores rejected Duplify's access token. Open Duplify once on ${job.source} (source), then come back here and run a new scan. Destination store: ${job.destination}.`
                   : failureReason}
               </s-paragraph>
-              {isAuthFailure && (
-                <s-button
-                  slot="primary-action"
-                  href={`https://admin.shopify.com/store/${job.source.replace(/\.myshopify\.com$/i, "")}/apps`}
-                  target="_blank"
-                >
-                  Open source store apps
-                </s-button>
+              {isProtectedCustomerDataError ? (
+                <s-stack direction="inline" gap="base">
+                  <s-button
+                    slot="primary-action"
+                    href="https://shopify.dev/docs/apps/launch/protected-customer-data"
+                    target="_blank"
+                  >
+                    Shopify customer data docs
+                  </s-button>
+                  <s-button
+                    slot="secondary-actions"
+                    href="mailto:support@yourapp.example?subject=Protected%20Customer%20Data%20Access%20Request"
+                  >
+                    Contact app owner
+                  </s-button>
+                </s-stack>
+              ) : (
+                <>
+                  {isAuthFailure && (
+                    <s-button
+                      slot="primary-action"
+                      href={`https://admin.shopify.com/store/${job.source.replace(/\.myshopify\.com$/i, "")}/apps`}
+                      target="_blank"
+                    >
+                      Open source store apps
+                    </s-button>
+                  )}
+                  <s-button
+                    slot="secondary-actions"
+                    href={`/app/migrations/${job.id}/logs`}
+                  >
+                    View logs
+                  </s-button>
+                  <s-button
+                    slot="secondary-actions"
+                    href={`/api/migrations/${job.id}/errors.csv`}
+                    target="_blank"
+                  >
+                    Download error report
+                  </s-button>
+                </>
               )}
-              <s-button
-                slot="secondary-actions"
-                href={`/app/migrations/${job.id}/logs`}
-              >
-                View logs
-              </s-button>
-              <s-button
-                slot="secondary-actions"
-                href={`/api/migrations/${job.id}/errors.csv`}
-                target="_blank"
-              >
-                Download error report
-              </s-button>
             </s-banner>
 
             {job.failure.failedGroups.length > 0 && (
