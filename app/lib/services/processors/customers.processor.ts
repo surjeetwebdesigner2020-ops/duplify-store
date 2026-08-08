@@ -259,10 +259,12 @@ async function processCustomerItem(
   };
 
   try {
-    const result = await destAdmin.graphql<CustomerCreateResponse>(
-      CUSTOMER_CREATE_MUTATION,
-      { input },
-      20,
+    const result = await retry(() =>
+      destAdmin.graphql<CustomerCreateResponse>(
+        CUSTOMER_CREATE_MUTATION,
+        { input },
+        20,
+      ),
     );
 
     if (
