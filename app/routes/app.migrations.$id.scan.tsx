@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { LoaderFunctionArgs } from "react-router";
 import { Form, redirect, useFetcher, useLoaderData, useRevalidator } from "react-router";
 import { authenticate } from "../shopify.server";
@@ -166,6 +166,8 @@ export default function MigrationScan() {
       job.sourceNeedsReconnect ||
       job.destinationNeedsReconnect);
 
+  const prevWaitingRef = useRef<boolean>(false);
+
   useEffect(() => {
     if (!isScanning && !isMigrationActive && !isWaitingForStoreApproval) {
       return;
@@ -173,6 +175,20 @@ export default function MigrationScan() {
     const interval = setInterval(() => revalidator.revalidate(), 2500);
     return () => clearInterval(interval);
   }, [isScanning, isMigrationActive, isWaitingForStoreApproval, revalidator]);
+
+  // Auto-run a fresh scan once the shop reconnects (prevents users being stuck)
+  useEffect(() => {
+    const wasWaiting = prevWaitingRef.current;
+    if (wasWaiting && !isWaitingForStoreApproval) {
+      // Shop was waiting for reconnect and now it's not — trigger a scan
+      try {
+        scanFetcher.submit(null, { method: "post", action: `/api/migrations/${job.id}/scan` });
+      } catch (e) {
+        // ignore — user can click Scan again manually
+      }
+    }
+    prevWaitingRef.current = isWaitingForStoreApproval;
+  }, [isWaitingForStoreApproval, job.id, scanFetcher]);
 
   const summary = job.scanSummary;
   const totalRecords = summary
@@ -372,6 +388,13 @@ export default function MigrationScan() {
                     target="_blank"
                   >
                     Open store app
+                  </s-button>
+                  <s-button
+                    variant="secondary"
+                    href={sourceReconnectHref}
+                    target="_blank"
+                  >
+                    Reconnect (authorize)
                   </s-button>
                   <s-button
                     variant="secondary"
