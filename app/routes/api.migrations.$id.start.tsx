@@ -10,8 +10,10 @@ import {
   needsPermissionRescan,
   storeScopesFromConnection,
 } from "../lib/services/permissionStatus.server";
-import { refreshShopScopesIfStale } from "../lib/services/storeConnection.service";
-import { migrationJobForShopWhere } from "../lib/services/storeConnection.service";
+import {
+  migrationJobForOwnerReadyWhere,
+  refreshShopScopesIfStale,
+} from "../lib/services/storeConnection.service";
 import { verifyMigrationStoreAccess } from "../lib/services/shopAccess.server";
 import { enqueueOrRunInline } from "../lib/queue/enqueueOrRun.server";
 
@@ -26,7 +28,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   });
 
   const job = await db.migrationJob.findFirst({
-    where: migrationJobForShopWhere(params.id!, shop.id),
+    where: migrationJobForOwnerReadyWhere(params.id!, shop.id),
     include: {
       storeConnection: { include: { sourceShop: true, destinationShop: true } },
     },
@@ -70,22 +72,25 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   }
 
   // Live API ping — do not start if Shopify still rejects a store token.
-  const badShop = await verifyMigrationStoreAccess(job.storeConnection);
+  const badShop = await verifyMigrationStoreAccess(connection);
   if (badShop) {
     await logEvent(
       job.id,
       "WARN",
       `Migration start blocked: reconnect ${badShop} (invalid access token)`,
     );
-    return redirect(`/app/migrations/${job.id}/scan`);
+    return redirect(
+      `/app/migrations/${job.id}/scan?startError=${encodeURIComponent(`reconnect:${badShop}`)}`,
+    );
   }
 
   if (needsPermissionRescan(scanSummary, selectedResources, storeScopes)) {
     await logEvent(
       job.id,
-      "INFO",
-      "Starting migration after a fresh access check",
+      "WARN",
+      "Migration start blocked until a fresh scan completes",
     );
+    return redirect(`/app/migrations/${job.id}/scan?startError=fresh-scan`);
   }
 
   await db.migrationJob.update({

@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { migrationJobForShopWhere } from "../lib/services/storeConnection.service";
+import { migrationJobForOwnerWhere } from "../lib/services/storeConnection.service";
 
 // Lightweight JSON polling endpoint mirroring the fields shown on the
 // Migration Progress page — useful for polling without a full page/loader
@@ -11,7 +11,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const shop = await db.shop.findUniqueOrThrow({ where: { shopDomain: session.shop } });
 
   const job = await db.migrationJob.findFirst({
-    where: migrationJobForShopWhere(params.id!, shop.id),
+    where: migrationJobForOwnerWhere(params.id!, shop.id),
   });
   if (!job) {
     return Response.json({ error: "Not found" }, { status: 404 });

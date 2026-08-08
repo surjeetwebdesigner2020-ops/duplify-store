@@ -2,7 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { redirect } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { migrationJobForShopWhere } from "../lib/services/storeConnection.service";
+import { migrationJobForOwnerWhere } from "../lib/services/storeConnection.service";
 
 const ACTIVE_STATUSES = new Set(["SCANNING", "QUEUED", "RUNNING"]);
 
@@ -19,7 +19,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const returnTo = String(form.get("returnTo") || "/app/migrations");
 
   const job = await db.migrationJob.findFirst({
-    where: migrationJobForShopWhere(params.id!, shop.id),
+    where: migrationJobForOwnerWhere(params.id!, shop.id),
   });
   if (!job) {
     return redirect("/app/migrations");

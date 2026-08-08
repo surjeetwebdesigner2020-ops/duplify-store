@@ -29,7 +29,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     where: { shopDomain: session.shop },
   });
 
-  const connections = await listConnectionsForOwner(shop.id);
+  const connections = (await listConnectionsForOwner(shop.id)).filter(
+    (connection) => connection.ownerShopId === shop.id,
+  );
   const connectionIds = connections.map((c) => c.id);
 
   // History already deleted but mappings left behind — wipe those orphans.
@@ -39,7 +41,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const resourceType = url.searchParams.get("resourceType") || undefined;
   const requestedConnectionId =
     url.searchParams.get("connectionId") || undefined;
-  // Prevent IDOR: only allow connection IDs this shop owns / participates in.
+  // Prevent IDOR: only allow connection IDs owned by this shop.
   const connectionId =
     requestedConnectionId && connectionIds.includes(requestedConnectionId)
       ? requestedConnectionId

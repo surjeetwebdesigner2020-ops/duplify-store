@@ -1,6 +1,13 @@
 import { useEffect, useRef } from "react";
 import type { LoaderFunctionArgs } from "react-router";
-import { Form, redirect, useFetcher, useLoaderData, useRevalidator } from "react-router";
+import {
+  Form,
+  redirect,
+  useFetcher,
+  useLoaderData,
+  useRevalidator,
+  useSearchParams,
+} from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import type { ScanSummary } from "../lib/services/scan.service";
@@ -15,7 +22,7 @@ import {
 } from "../lib/services/permissionStatus.server";
 import {
   hydrateShopFromOfflineSession,
-  migrationJobForShopWhere,
+  migrationJobForOwnerWhere,
   refreshShopScopesIfStale,
 } from "../lib/services/storeConnection.service";
 import { shopIsConnected } from "../lib/shopify/scopes";
@@ -30,7 +37,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   });
 
   const job = await db.migrationJob.findFirst({
-    where: migrationJobForShopWhere(params.id!, shop.id),
+    where: migrationJobForOwnerWhere(params.id!, shop.id),
     include: {
       storeConnection: { include: { sourceShop: true, destinationShop: true } },
     },
@@ -72,7 +79,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   }
 
   const freshJob = await db.migrationJob.findFirst({
-    where: migrationJobForShopWhere(params.id!, shop.id),
+    where: migrationJobForOwnerWhere(params.id!, shop.id),
     include: {
       storeConnection: { include: { sourceShop: true, destinationShop: true } },
     },
@@ -160,8 +167,10 @@ function formatStage(stage: string | null) {
 
 export default function MigrationScan() {
   const { job, currentShopDomain } = useLoaderData<typeof loader>();
+  const [searchParams] = useSearchParams();
   const revalidator = useRevalidator();
   const scanFetcher = useFetcher();
+  const startError = searchParams.get("startError");
 
   const isScanning = job.status === "SCANNING";
   const isMigrationActive = job.status === "QUEUED" || job.status === "RUNNING";
@@ -592,11 +601,19 @@ export default function MigrationScan() {
               </s-banner>
             ) : (
               <s-stack direction="block" gap="base">
-                {job.needsPermissionRescan && (
-                  <s-banner tone="info" heading="Fresh counts recommended">
+                {startError?.startsWith("reconnect:") && (
+                  <s-banner tone="critical" heading="Store reconnect required">
                     <s-paragraph>
-                      Store access was updated after this scan. You can start
-                      now, or run the scan again for updated counts.
+                      Shopify rejected access for {startError.slice("reconnect:".length)}.
+                      Open Duplify on that store, then run a fresh scan.
+                    </s-paragraph>
+                  </s-banner>
+                )}
+                {job.needsPermissionRescan && (
+                  <s-banner tone="warning" heading="Fresh scan required">
+                    <s-paragraph>
+                      Store access was updated after this scan. Run the scan
+                      again before starting the migration.
                     </s-paragraph>
                   </s-banner>
                 )}
@@ -607,11 +624,13 @@ export default function MigrationScan() {
                   creating it, so nothing will be duplicated.
                 </s-paragraph>
                 <s-stack direction="inline" gap="base">
-                  <Form method="post" action={`/api/migrations/${job.id}/start`}>
-                    <s-button type="submit" variant="primary">
-                      Start migration
-                    </s-button>
-                  </Form>
+                  {!job.needsPermissionRescan && (
+                    <Form method="post" action={`/api/migrations/${job.id}/start`}>
+                      <s-button type="submit" variant="primary">
+                        Start migration
+                      </s-button>
+                    </Form>
+                  )}
                   {job.needsPermissionRescan && (
                     <Form
                       method="post"

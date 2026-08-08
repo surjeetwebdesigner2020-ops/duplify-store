@@ -3,7 +3,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import { Form, redirect, useLoaderData, useRevalidator } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { migrationJobForShopWhere } from "../lib/services/storeConnection.service";
+import { migrationJobForOwnerWhere } from "../lib/services/storeConnection.service";
 import { StatCard } from "../components/dashboard/StatCard";
 import { StatusBadge } from "../components/dashboard/StatusBadge";
 import { ProgressRing } from "../components/dashboard/ProgressRing";
@@ -123,7 +123,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   });
 
   const job = await db.migrationJob.findFirst({
-    where: migrationJobForShopWhere(params.id!, shop.id),
+    where: migrationJobForOwnerWhere(params.id!, shop.id),
     include: {
       storeConnection: { include: { sourceShop: true, destinationShop: true } },
     },

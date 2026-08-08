@@ -28,9 +28,10 @@ export async function verifyShopAdminAccess(shop: {
     await admin.graphql<{ shop: { name: string } }>(SHOP_PING, undefined, 1);
     return null;
   } catch (error) {
-    if (!isShopifyAuthError(error) && !(error instanceof Error)) {
-      return shop.shopDomain;
-    }
+    // Network errors, throttling and Shopify outages must never revoke a
+    // perfectly valid stored credential. Only confirmed auth failures may
+    // trigger the session-heal/invalidation path below.
+    if (!isShopifyAuthError(error)) throw error;
 
     // One heal attempt from Session storage, then re-ping.
     try {

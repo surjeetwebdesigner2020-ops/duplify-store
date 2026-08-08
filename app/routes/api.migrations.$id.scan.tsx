@@ -3,7 +3,7 @@ import { redirect } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { runScan } from "../lib/services/scan.service";
-import { migrationJobForShopWhere } from "../lib/services/storeConnection.service";
+import { migrationJobForOwnerReadyWhere } from "../lib/services/storeConnection.service";
 import { enqueueOrRunInline } from "../lib/queue/enqueueOrRun.server";
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
@@ -17,7 +17,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   });
 
   const job = await db.migrationJob.findFirst({
-    where: migrationJobForShopWhere(params.id!, shop.id),
+    where: migrationJobForOwnerReadyWhere(params.id!, shop.id),
   });
   if (!job) {
     return redirect("/app/migrations");

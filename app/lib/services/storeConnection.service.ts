@@ -188,3 +188,19 @@ export function migrationJobForShopWhere(jobId: string, shopId: string) {
     },
   };
 }
+
+/** Only the shop that created the pair may mutate its migration jobs. */
+export function migrationJobForOwnerWhere(jobId: string, shopId: string) {
+  return {
+    id: jobId,
+    storeConnection: { ownerShopId: shopId },
+  };
+}
+
+/** Owner-only mutation that also requires an approved, active store pair. */
+export function migrationJobForOwnerReadyWhere(jobId: string, shopId: string) {
+  return {
+    id: jobId,
+    storeConnection: { ownerShopId: shopId, status: "READY" as const },
+  };
+}

@@ -68,11 +68,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const refreshedConnections = await listConnectionsForOwner(shop.id);
 
   const shopConnectionAccess = {
-    OR: [
-      { ownerShopId: shop.id },
-      { sourceShopId: shop.id },
-      { destinationShopId: shop.id },
-    ],
+    ownerShopId: shop.id,
   };
 
   const rawJobs = await db.migrationJob.findMany({
@@ -338,11 +334,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const connection = await db.storeConnection.findFirst({
     where: {
       id: storeConnectionId,
-      OR: [
-        { ownerShopId: shop.id },
-        { sourceShopId: shop.id },
-        { destinationShopId: shop.id },
-      ],
+      ownerShopId: shop.id,
+      status: "READY",
     },
     include: { sourceShop: true, destinationShop: true },
   });

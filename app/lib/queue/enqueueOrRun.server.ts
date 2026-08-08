@@ -15,13 +15,13 @@ export async function enqueueOrRunInline<T>(options: {
   const { queue, jobName, data, runInline, label } = options;
 
   try {
-    await queue.add(jobName, data as never);
     const workers = await queue.getWorkers();
     if (workers.length > 0) {
+      await queue.add(jobName, data as never);
       return "queued";
     }
     console.warn(
-      `[${label}] Job queued but no workers are connected; running inline`,
+      `[${label}] No workers are connected; running inline`,
     );
   } catch (error) {
     console.warn(`[${label}] Queue unavailable; running inline`, error);

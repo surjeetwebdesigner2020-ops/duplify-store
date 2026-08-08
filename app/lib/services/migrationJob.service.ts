@@ -132,11 +132,7 @@ export async function listMigrationJobs(filters: MigrationHistoryFilters) {
       status: filters.status,
       type: filters.type,
       storeConnection: {
-        OR: [
-          { ownerShopId: filters.ownerShopId },
-          { sourceShopId: filters.ownerShopId },
-          { destinationShopId: filters.ownerShopId },
-        ],
+        ownerShopId: filters.ownerShopId,
         ...(filters.search
           ? {
               AND: [
