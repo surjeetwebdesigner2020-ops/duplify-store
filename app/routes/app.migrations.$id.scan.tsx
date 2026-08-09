@@ -105,7 +105,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const destinationNeedsReconnect = !shopIsConnected(
     freshJob.storeConnection.destinationShop,
   );
-  const protectedCustomerDataHelpUrl =
+  const protectedCustomerDataReviewUrl =
+    process.env.SHOPIFY_PARTNERS_REVIEW_URL ||
     process.env.SHOPIFY_PROTECTED_CUSTOMER_DATA_URL ||
     "https://shopify.dev/docs/apps/launch/protected-customer-data";
 
@@ -122,7 +123,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       missingPermissions: liveMissingAppPermissions(storeScopes),
       sourceNeedsReconnect,
       destinationNeedsReconnect,
-      protectedCustomerDataHelpUrl,
+      protectedCustomerDataReviewUrl,
       needsPermissionRescan: needsPermissionRescan(
         freshJob.scanSummary as ScanSummary | null,
         freshJob.selectedResources as string[],
@@ -228,8 +229,8 @@ export default function MigrationScan() {
   const isProtectedCustomerDataError = /not approved to access the Customer object|protected-customer-data|ACCESS_DENIED/i.test(
     failureReason,
   );
-  const protectedCustomerDataHelpUrl =
-    job.protectedCustomerDataHelpUrl ||
+  const protectedCustomerDataReviewUrl =
+    job.protectedCustomerDataReviewUrl ||
     "https://shopify.dev/docs/apps/launch/protected-customer-data";
  
   return (
@@ -312,10 +313,10 @@ export default function MigrationScan() {
                 <s-stack direction="inline" gap="base">
                   <s-button
                     slot="primary-action"
-                    href={protectedCustomerDataHelpUrl}
+                   href={protectedCustomerDataReviewUrl}
                     target="_blank"
                   >
-                    Open review page
+                   Open Shopify review
                   </s-button>
                   <s-button
                     slot="secondary-actions"
@@ -454,10 +455,10 @@ export default function MigrationScan() {
                   </s-button>
                   <s-button
                     variant="secondary"
-                    href={protectedCustomerDataHelpUrl}
+                    href={protectedCustomerDataReviewUrl}
                     target="_blank"
                   >
-                    Open review page
+                    Open Shopify review
                   </s-button>
                   <s-button
                     variant="secondary"

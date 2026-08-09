@@ -8,6 +8,7 @@ const envSchema = z.object({
   SCOPES: z.string().min(1, "SCOPES is required"),
   SHOPIFY_APP_URL: z.string().url("SHOPIFY_APP_URL must be a valid URL"),
   SHOPIFY_PROTECTED_CUSTOMER_DATA_URL: z.string().url("SHOPIFY_PROTECTED_CUSTOMER_DATA_URL must be a valid URL").optional(),
+  SHOPIFY_PARTNERS_REVIEW_URL: z.string().url("SHOPIFY_PARTNERS_REVIEW_URL must be a valid URL").optional(),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),
   TOKEN_ENCRYPTION_KEY: z
