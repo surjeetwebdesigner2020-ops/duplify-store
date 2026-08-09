@@ -105,6 +105,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const destinationNeedsReconnect = !shopIsConnected(
     freshJob.storeConnection.destinationShop,
   );
+  const protectedCustomerDataHelpUrl =
+    process.env.SHOPIFY_PROTECTED_CUSTOMER_DATA_URL ||
+    "https://shopify.dev/docs/apps/launch/protected-customer-data";
 
   return {
     currentShopDomain: session.shop,
@@ -119,6 +122,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       missingPermissions: liveMissingAppPermissions(storeScopes),
       sourceNeedsReconnect,
       destinationNeedsReconnect,
+      protectedCustomerDataHelpUrl,
       needsPermissionRescan: needsPermissionRescan(
         freshJob.scanSummary as ScanSummary | null,
         freshJob.selectedResources as string[],
@@ -207,7 +211,10 @@ export default function MigrationScan() {
   const hasSourceMissingPermissions = missingPermissions.some(
     (permission) => permission.shopRole === "source",
   );
-  const sourceReconnectHref = `/auth/external/begin?shop=${encodeURIComponent(job.source)}&role=SOURCE`;
+  const reconnectTargetShop = job.sourceNeedsReconnect ? job.source : job.destination;
+  const reconnectRole = job.sourceNeedsReconnect ? "SOURCE" : "DESTINATION";
+  const reconnectHref = `/auth/external/begin?shop=${encodeURIComponent(reconnectTargetShop)}&role=${reconnectRole}`;
+  const reconnectStoreAppHref = `https://admin.shopify.com/store/${reconnectTargetShop.replace(/\.myshopify\.com$/i, "")}/apps/duplify-store`;
   const primaryFailure = job.failure.latestErrors[0];
   const failureReason =
     primaryFailure?.detail ??
@@ -221,7 +228,10 @@ export default function MigrationScan() {
   const isProtectedCustomerDataError = /not approved to access the Customer object|protected-customer-data|ACCESS_DENIED/i.test(
     failureReason,
   );
-
+  const protectedCustomerDataHelpUrl =
+    job.protectedCustomerDataHelpUrl ||
+    "https://shopify.dev/docs/apps/launch/protected-customer-data";
+ 
   return (
     <s-page heading="Pre-migration scan" inlineSize="large">
       <s-section heading="Migration">
@@ -302,16 +312,36 @@ export default function MigrationScan() {
                 <s-stack direction="inline" gap="base">
                   <s-button
                     slot="primary-action"
-                    href="https://shopify.dev/docs/apps/launch/protected-customer-data"
+                    href={protectedCustomerDataHelpUrl}
                     target="_blank"
                   >
-                    Shopify customer data docs
+                    Open review page
                   </s-button>
                   <s-button
                     slot="secondary-actions"
-                    href="mailto:support@yourapp.example?subject=Protected%20Customer%20Data%20Access%20Request"
+                    href={reconnectStoreAppHref}
+                    target="_blank"
                   >
-                    Contact app owner
+                    Open store app
+                  </s-button>
+                  <s-button
+                    slot="secondary-actions"
+                    href={reconnectHref}
+                    target="_blank"
+                  >
+                    Reauthorize store
+                  </s-button>
+                  <s-button
+                    slot="secondary-actions"
+                    onClick={() =>
+                      scanFetcher.submit(null, {
+                        method: "post",
+                        action: `/api/migrations/${job.id}/scan`,
+                      })
+                    }
+                    {...(scanFetcher.state !== "idle" ? { loading: true } : {})}
+                  >
+                    Scan again
                   </s-button>
                 </s-stack>
               ) : (
@@ -410,17 +440,24 @@ export default function MigrationScan() {
                 <s-stack direction="inline" gap="base">
                   <s-button
                     variant="primary"
-                    href={`https://admin.shopify.com/store/${(job.sourceNeedsReconnect ? job.source : job.destination).replace(/\.myshopify\.com$/i, "")}/apps/duplify-store`}
+                    href={reconnectStoreAppHref}
                     target="_blank"
                   >
                     Open store app
                   </s-button>
                   <s-button
                     variant="secondary"
-                    href={sourceReconnectHref}
+                    href={reconnectHref}
                     target="_blank"
                   >
-                    Reconnect (authorize)
+                    Reauthorize store
+                  </s-button>
+                  <s-button
+                    variant="secondary"
+                    href={protectedCustomerDataHelpUrl}
+                    target="_blank"
+                  >
+                    Open review page
                   </s-button>
                   <s-button
                     variant="secondary"
@@ -448,7 +485,7 @@ export default function MigrationScan() {
           <s-section heading="Store access">
             <PermissionBanner
               missing={missingPermissions}
-              authorizeHref={sourceReconnectHref}
+              authorizeHref={reconnectHref}
               currentShopDomain={currentShopDomain}
             />
           </s-section>
@@ -524,7 +561,7 @@ export default function MigrationScan() {
             <s-section heading="Store access">
               <PermissionBanner
                 missing={missingPermissions}
-                authorizeHref={sourceReconnectHref}
+                authorizeHref={reconnectHref}
               />
             </s-section>
           )}
