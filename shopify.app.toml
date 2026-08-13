@@ -29,7 +29,7 @@ api_version = "2026-07"
 
   # Handled by: /app/routes/webhooks.app.scopes_update.tsx
   [[webhooks.subscriptions]]
-  uri = "/webhooks/app_scopes_update"
+  uri = "/webhooks/app/scopes_update"
   topics = ["app/scopes_update"]
 
   # Mandatory privacy-law webhooks. HMAC verification and processing are
