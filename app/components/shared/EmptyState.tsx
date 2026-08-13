@@ -1,8 +1,18 @@
+interface EmptyStateAction {
+  label: string;
+  href: string;
+  target?: "_blank" | "_self";
+}
+
 interface EmptyStateProps {
   heading: string;
   message: string;
-  action?: { label: string; href: string };
-  secondaryAction?: { label: string; href: string };
+  action?: EmptyStateAction;
+  secondaryAction?: EmptyStateAction;
+}
+
+function linkTarget(action: EmptyStateAction) {
+  return action.target ?? (/^https?:\/\//i.test(action.href) ? "_blank" : undefined);
 }
 
 // Official Shopify Polaris empty-state pattern (illustration + heading +
@@ -28,12 +38,21 @@ export function EmptyState({ heading, message, action, secondaryAction }: EmptyS
         {(action || secondaryAction) && (
           <s-button-group>
             {secondaryAction && (
-              <s-button slot="secondary-actions" href={secondaryAction.href}>
+              <s-button
+                slot="secondary-actions"
+                href={secondaryAction.href}
+                target={linkTarget(secondaryAction)}
+              >
                 {secondaryAction.label}
               </s-button>
             )}
             {action && (
-              <s-button slot="primary-action" href={action.href} variant="primary">
+              <s-button
+                slot="primary-action"
+                href={action.href}
+                target={linkTarget(action)}
+                variant="primary"
+              >
                 {action.label}
               </s-button>
             )}

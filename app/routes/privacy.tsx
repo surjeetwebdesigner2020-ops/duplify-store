@@ -25,7 +25,13 @@ export default function PrivacyPolicy() {
         Duplify Store (“Duplify”, “we”, “us”) is a Shopify app that helps
         merchants copy catalog and store content from one Shopify store to
         another. Contact:{" "}
-        <a href="mailto:support@duplify.store">support@duplify.store</a>.
+        <a
+          href="mailto:support@duplify.store"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          support@duplify.store
+        </a>.
       </p>
 
       <h2>Data we process</h2>
