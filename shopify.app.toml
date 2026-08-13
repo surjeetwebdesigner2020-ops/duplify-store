@@ -2,7 +2,7 @@
 
 client_id = "9d1cb76c3edf8db57b410e2d75268a14"
 name = "Duplify Store"
-application_url = "https://duplify-store-production-2812.up.railway.app"
+application_url = "https://duplify-store-production-6471.up.railway.app"
 embedded = true
 
 [access_scopes]
@@ -16,7 +16,7 @@ scopes = "read_content,read_customers,read_discounts,read_draft_orders,read_file
 # OAuth approval links return to the same /auth/callback route used by the
 # app's Shopify authentication flow.
 redirect_urls = [
-  "https://duplify-store-production-2812.up.railway.app/auth/callback"
+  "https://duplify-store-production-6471.up.railway.app/auth/callback"
 ]
 
 [webhooks]
@@ -29,7 +29,7 @@ api_version = "2026-07"
 
   # Handled by: /app/routes/webhooks.app.scopes_update.tsx
   [[webhooks.subscriptions]]
-  uri = "/webhooks/app/scopes_update"
+  uri = "/webhooks/app_scopes_update"
   topics = ["app/scopes_update"]
 
   # Mandatory privacy-law webhooks. HMAC verification and processing are

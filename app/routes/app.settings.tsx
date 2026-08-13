@@ -110,7 +110,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       (setting?.defaultConflictStrategy as { default?: string } | null)
         ?.default ?? "OVERWRITE",
     privacyExports: await listCustomerDataExports(shop.id),
-    privacyPolicyUrl: new URL("/privacy", process.env.SHOPIFY_APP_URL || "https://duplify-store-production.up.railway.app").toString(),
+    privacyPolicyUrl: new URL("/privacy", process.env.SHOPIFY_APP_URL || "https://duplify-store-production-6471.up.railway.app").toString(),
   };
 };
 
