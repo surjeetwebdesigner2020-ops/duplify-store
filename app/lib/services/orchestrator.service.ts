@@ -6,7 +6,10 @@ import {
   recalculateJobCounters,
   setJobStatus,
 } from "./migrationJob.service";
-import { runProductsStage } from "./processors/products.processor";
+import {
+  backfillProductReferenceMetafields,
+  runProductsStage,
+} from "./processors/products.processor";
 import { runImagesStage } from "./processors/images.processor";
 import { runCollectionsStage } from "./processors/collections.processor";
 import { runCustomersStage } from "./processors/customers.processor";
@@ -148,6 +151,25 @@ async function runStages(migrationJobId: string): Promise<void> {
 
     await recalculateJobCounters(migrationJobId);
     if (await isMigrationCancelled(migrationJobId)) return;
+  }
+
+  // Reference metafields must be written only after every selected resource
+  // has had a chance to create/update its source -> destination ID mapping.
+  // Running this on every product migration also repairs metadata after a
+  // merchant deletes a destination product and imports it again.
+  if (stages.includes("products")) {
+    const job = await getMigrationJob(migrationJobId);
+    if (job && job.status !== "CANCELLED") {
+      await logEvent(migrationJobId, "INFO", "Backfilling product reference metafields");
+      try {
+        await backfillProductReferenceMetafields(job);
+      } catch (error) {
+        stageFailures += 1;
+        await logEvent(migrationJobId, "ERROR", "Product reference metafield backfill failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 
   const finalCounters = await recalculateJobCounters(migrationJobId);

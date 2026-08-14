@@ -10,7 +10,13 @@ import {
   METAFIELDS_SET_MUTATION,
   type MetafieldsSetInput,
 } from "../../shopify/mutations/metafields";
-import { getLiveMapping, saveMapping, deleteMapping, getMapping } from "../idMapping.service";
+import {
+  deleteMapping,
+  getLiveMapping,
+  getMapping,
+  getMappingBySourceIdAnyType,
+  saveMapping,
+} from "../idMapping.service";
 import { isMigrationCancelled, logEvent } from "../migrationJob.service";
 import type { ConflictStrategy, ProductBulkPayload } from "../types";
 import type { MigrationJobWithConnection } from "../orchestrator.service";
@@ -388,6 +394,12 @@ async function processProductItem(
     }
   }
 
+  await logEvent(job.id, "INFO", `Migrated product "${payload.parent.title}"`, {
+    sourceId: item.sourceId,
+    destinationId: product.id,
+  });
+}
+
 interface MetafieldsSetResponse {
   metafieldsSet: {
     userErrors?: unknown;
@@ -408,8 +420,53 @@ function canMigrateProductMetafield(metafield: ProductBulkPayload["metafields"][
     !namespace.startsWith("app--") &&
     !namespace.startsWith("$app") &&
     namespace !== "shopify" &&
+    // Reference values contain source-store GIDs. They are applied in the
+    // final backfill pass, after every selected resource has been mapped.
     !type.includes("reference")
   );
+}
+
+function canMigrateProductReferenceMetafield(
+  metafield: ProductBulkPayload["metafields"][number],
+) {
+  const namespace = metafield.namespace.trim().toLowerCase();
+  const type = metafield.type.trim().toLowerCase();
+  return (
+    namespace.length > 0 &&
+    metafield.key.trim().length > 0 &&
+    metafield.value != null &&
+    !namespace.startsWith("app--") &&
+    !namespace.startsWith("$app") &&
+    namespace !== "shopify" &&
+    type.includes("reference")
+  );
+}
+
+export async function remapReferenceMetafieldValue(
+  type: string,
+  value: string,
+  resolveDestinationId: (sourceId: string) => Promise<string | null>,
+): Promise<string | null> {
+  if (type.toLowerCase().startsWith("list.")) {
+    let sourceIds: unknown;
+    try {
+      sourceIds = JSON.parse(value);
+    } catch {
+      return null;
+    }
+    if (!Array.isArray(sourceIds) || sourceIds.some((id) => typeof id !== "string")) {
+      return null;
+    }
+    const destinationIds: string[] = [];
+    for (const sourceId of sourceIds as string[]) {
+      const destinationId = await resolveDestinationId(sourceId);
+      if (!destinationId) return null;
+      destinationIds.push(destinationId);
+    }
+    return JSON.stringify(destinationIds);
+  }
+
+  return resolveDestinationId(value);
 }
 
 async function migrateProductMetafields(
@@ -455,10 +512,94 @@ async function migrateProductMetafields(
   }
 }
 
-  await logEvent(job.id, "INFO", `Migrated product "${payload.parent.title}"`, {
-    sourceId: item.sourceId,
-    destinationId: product.id,
+/**
+ * Re-applies product reference metafields after all selected resources have
+ * been migrated. This is essential on a re-import: a deleted destination
+ * product gets a new GID, while its metaobject/reference targets may already
+ * exist and remain mapped from the earlier run.
+ */
+export async function backfillProductReferenceMetafields(
+  job: MigrationJobWithConnection,
+): Promise<void> {
+  const destAdmin = createAdminClient(job.storeConnection.destinationShop);
+  const productItems = await db.migrationItem.findMany({
+    where: {
+      migrationJobId: job.id,
+      resourceType: "product",
+      status: { in: ["COMPLETED", "SKIPPED"] },
+      destinationId: { not: null },
+    },
   });
+
+  let applied = 0;
+  let skipped = 0;
+  for (const item of productItems) {
+    if (!item.destinationId) continue;
+    const payload = item.payload as unknown as ProductBulkPayload;
+    const metafields = payload.metafields.filter(canMigrateProductReferenceMetafield);
+
+    for (const metafield of metafields) {
+      const value = await remapReferenceMetafieldValue(
+        metafield.type,
+        metafield.value,
+        (sourceId) => getMappingBySourceIdAnyType(job.storeConnectionId, sourceId),
+      );
+      if (!value) {
+        skipped += 1;
+        await logEvent(
+          job.id,
+          "WARN",
+          `Skipped product reference metafield ${metafield.namespace}.${metafield.key}: referenced destination record is not available`,
+          { sourceId: item.sourceId, destinationId: item.destinationId },
+        );
+        continue;
+      }
+
+      try {
+        const result = await destAdmin.graphql<MetafieldsSetResponse>(
+          METAFIELDS_SET_MUTATION,
+          {
+            metafields: [{
+              ownerId: item.destinationId,
+              namespace: metafield.namespace,
+              key: metafield.key,
+              type: metafield.type,
+              value,
+            } satisfies MetafieldsSetInput],
+          },
+          10,
+        );
+        const message = joinUserErrors(result.metafieldsSet?.userErrors, "");
+        if (message) {
+          skipped += 1;
+          await logEvent(
+            job.id,
+            "WARN",
+            `Skipped product reference metafield ${metafield.namespace}.${metafield.key}: ${message}`,
+            { sourceId: item.sourceId, destinationId: item.destinationId },
+          );
+        } else {
+          applied += 1;
+        }
+      } catch (error) {
+        skipped += 1;
+        await logEvent(
+          job.id,
+          "WARN",
+          `Skipped product reference metafield ${metafield.namespace}.${metafield.key}: ${errMsg(error)}`,
+          { sourceId: item.sourceId, destinationId: item.destinationId },
+        );
+      }
+    }
+  }
+
+  if (applied > 0 || skipped > 0) {
+    await logEvent(
+      job.id,
+      skipped > 0 ? "WARN" : "INFO",
+      `Product reference metafield backfill finished: ${applied} applied, ${skipped} skipped`,
+    );
+  }
 }
 
 // Retry eligibility (attempt < MAX_ATTEMPTS) is enforced where retries are
