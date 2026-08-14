@@ -23,6 +23,7 @@ import { StatCard } from "../components/dashboard/StatCard";
 import { StatusBadge } from "../components/dashboard/StatusBadge";
 import { HeroBanner } from "../components/dashboard/HeroBanner";
 import { MigrationList } from "../components/dashboard/MigrationList";
+import { ProtectedCustomerDataBanner } from "../components/dashboard/ProtectedCustomerDataBanner";
 import { EmptyState } from "../components/shared/EmptyState";
 
 // Shopify must approve write_themes before a public app can create or edit
@@ -421,7 +422,11 @@ const MIGRATION_TYPES: Array<{
     supported: true,
   },
   { value: "COLLECTIONS", label: "Collections only", supported: true },
-  { value: "CUSTOMERS", label: "Customers only", supported: true },
+  {
+    value: "CUSTOMERS",
+    label: "Customers only (protected data access required)",
+    supported: true,
+  },
   {
     value: "CONTENT",
     label: "Content only (pages, blogs, files, menus)",
@@ -443,7 +448,7 @@ const CUSTOM_RESOURCE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "images", label: "Product images" },
   { value: "inventory", label: "Inventory levels" },
   { value: "collections", label: "Collections" },
-  { value: "customers", label: "Customers" },
+  { value: "customers", label: "Customers (protected data access required)" },
   { value: "pages", label: "Pages" },
   { value: "blogs", label: "Blogs & articles" },
   { value: "menus", label: "Menus" },
@@ -673,6 +678,10 @@ export default function Overview() {
                     </s-choice>
                   ))}
                 </s-choice-list>
+              )}
+
+              {selectedResources.includes("customers") && (
+                <ProtectedCustomerDataBanner tone="info" />
               )}
 
               {needsThemePicker && (

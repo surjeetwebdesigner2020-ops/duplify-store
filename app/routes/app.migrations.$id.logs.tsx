@@ -3,6 +3,7 @@ import { Form, redirect, useLoaderData, useSearchParams } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { migrationJobForOwnerWhere } from "../lib/services/storeConnection.service";
+import { ProtectedCustomerDataBanner } from "../components/dashboard/ProtectedCustomerDataBanner";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -30,10 +31,24 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     take: 500,
   });
 
+  const protectedCustomerDataBlocked = Boolean(
+    await db.migrationLog.findFirst({
+      where: {
+        migrationJobId: job.id,
+        OR: [
+          { message: { contains: "not approved to access the Customer object", mode: "insensitive" } },
+          { message: { contains: "protected-customer-data", mode: "insensitive" } },
+        ],
+      },
+      select: { id: true },
+    }),
+  );
+
   return {
     jobId: job.id,
     source: job.storeConnection.sourceShop.shopDomain,
     destination: job.storeConnection.destinationShop.shopDomain,
+    protectedCustomerDataBlocked,
     logs: logs.map((l) => ({
       id: l.id,
       level: l.level,
@@ -51,7 +66,7 @@ const LEVEL_TONE: Record<string, "info" | "warning" | "critical" | "neutral"> = 
 };
 
 export default function MigrationLogs() {
-  const { jobId, source, destination, logs } = useLoaderData<typeof loader>();
+  const { jobId, source, destination, logs, protectedCustomerDataBlocked } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
 
   return (
@@ -74,6 +89,12 @@ export default function MigrationLogs() {
           </div>
         </Form>
       </s-section>
+
+      {protectedCustomerDataBlocked && (
+        <s-section>
+          <ProtectedCustomerDataBanner tone="critical" />
+        </s-section>
+      )}
 
       <s-section heading="Log entries">
         {logs.length === 0 ? (

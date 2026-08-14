@@ -10,6 +10,7 @@ import { ProgressRing } from "../components/dashboard/ProgressRing";
 import { StageTimeline } from "../components/dashboard/StageTimeline";
 import { ExportSheetCard } from "../components/dashboard/ExportSheetCard";
 import { PermissionBanner } from "../components/dashboard/PermissionBanner";
+import { ProtectedCustomerDataBanner } from "../components/dashboard/ProtectedCustomerDataBanner";
 import { Pill } from "../components/dashboard/Pill";
 import { IndeterminateProgressBar } from "../components/dashboard/IndeterminateProgressBar";
 import { ConfirmDestructiveModal } from "../components/shared/ConfirmDestructiveModal";
@@ -184,6 +185,20 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   const storeScopes = storeScopesFromConnection(job.storeConnection);
   const missingPermissions = liveMissingAppPermissions(storeScopes);
+  const protectedCustomerDataBlocked =
+    selectedResources.includes("customers") &&
+    Boolean(
+      await db.migrationLog.findFirst({
+        where: {
+          migrationJobId: job.id,
+          OR: [
+            { message: { contains: "not approved to access the Customer object", mode: "insensitive" } },
+            { message: { contains: "protected-customer-data", mode: "insensitive" } },
+          ],
+        },
+        select: { id: true },
+      }),
+    );
 
   return {
     job: {
@@ -210,6 +225,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       estimatedRemainingSeconds,
       sheets,
       missingPermissions,
+      protectedCustomerDataBlocked,
     },
   };
 };
@@ -267,6 +283,11 @@ export default function MigrationProgress() {
 
   return (
     <s-page heading="Migration progress" inlineSize="large">
+      {job.protectedCustomerDataBlocked && (
+        <s-section>
+          <ProtectedCustomerDataBanner tone="critical" />
+        </s-section>
+      )}
       {job.missingPermissions.length > 0 && (
         <s-section>
           <PermissionBanner
