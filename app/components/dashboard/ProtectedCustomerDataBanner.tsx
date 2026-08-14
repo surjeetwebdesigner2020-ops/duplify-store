@@ -1,10 +1,14 @@
 const SHOPIFY_PROTECTED_CUSTOMER_DATA_URL =
+  "https://partners.shopify.com/192111910/apps/410803372033/customer_data";
+const SHOPIFY_PROTECTED_CUSTOMER_DATA_GUIDE_URL =
   "https://shopify.dev/docs/apps/launch/protected-customer-data";
 
 export function ProtectedCustomerDataBanner({
   tone = "warning",
+  sourceShop,
 }: {
   tone?: "info" | "warning" | "critical";
+  sourceShop?: string;
 }) {
   return (
     <s-banner tone={tone} heading="Customer access must be enabled in Shopify">
@@ -13,6 +17,12 @@ export function ProtectedCustomerDataBanner({
           Shopify protects customer records. Before migrating customers, the app
           owner must enable protected customer data access for this app.
         </s-paragraph>
+        {sourceShop && (
+          <s-paragraph>
+            Source store: <strong>{sourceShop}</strong>. Customer data will be
+            imported from this store after the app-level access is enabled.
+          </s-paragraph>
+        )}
         <ol style={{ margin: "0", paddingLeft: "22px", lineHeight: 1.7 }}>
           <li>Open the Shopify Dev Dashboard.</li>
           <li>
@@ -39,9 +49,17 @@ export function ProtectedCustomerDataBanner({
           slot="secondary-actions"
           href={SHOPIFY_PROTECTED_CUSTOMER_DATA_URL}
           target="_blank"
+          variant="primary"
+        >
+          Open API access requests
+        </s-button>
+        <s-button
+          slot="secondary-actions"
+          href={SHOPIFY_PROTECTED_CUSTOMER_DATA_GUIDE_URL}
+          target="_blank"
           variant="secondary"
         >
-          Open Shopify access guide
+          View Shopify guide
         </s-button>
       </s-stack>
     </s-banner>

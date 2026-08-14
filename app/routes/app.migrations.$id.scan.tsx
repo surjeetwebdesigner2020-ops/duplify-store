@@ -115,7 +115,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const protectedCustomerDataReviewUrl =
     process.env.SHOPIFY_PARTNERS_REVIEW_URL ||
     process.env.SHOPIFY_PROTECTED_CUSTOMER_DATA_URL ||
-    "https://shopify.dev/docs/apps/launch/protected-customer-data";
+    "https://partners.shopify.com/192111910/apps/410803372033/customer_data";
 
   return {
     currentShopDomain: session.shop,
@@ -240,7 +240,7 @@ export default function MigrationScan() {
   );
   const protectedCustomerDataReviewUrl =
     job.protectedCustomerDataReviewUrl ||
-    "https://shopify.dev/docs/apps/launch/protected-customer-data";
+    "https://partners.shopify.com/192111910/apps/410803372033/customer_data";
  
   return (
     <s-page heading="Pre-migration scan" inlineSize="large">

@@ -502,6 +502,9 @@ export default function Overview() {
   const selectedResources = includeProductMetadata(
     type === "CUSTOM" ? resources : (TYPE_TO_RESOURCES[type] ?? []),
   );
+  const selectedConnection = readyConnections.find(
+    (connection) => connection.id === storeConnectionId,
+  );
   // READY pairs are never blocked by install/permission banners on Overview.
   // Scan/import itself enforces real Shopify access; this UI was causing false blocks.
   const hasThemeLimitation = selectedResources.includes("theme");
@@ -681,7 +684,10 @@ export default function Overview() {
               )}
 
               {selectedResources.includes("customers") && (
-                <ProtectedCustomerDataBanner tone="info" />
+                <ProtectedCustomerDataBanner
+                  tone="info"
+                  sourceShop={selectedConnection?.source}
+                />
               )}
 
               {needsThemePicker && (

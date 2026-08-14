@@ -92,7 +92,7 @@ export default function MigrationLogs() {
 
       {protectedCustomerDataBlocked && (
         <s-section>
-          <ProtectedCustomerDataBanner tone="critical" />
+          <ProtectedCustomerDataBanner tone="critical" sourceShop={source} />
         </s-section>
       )}
 

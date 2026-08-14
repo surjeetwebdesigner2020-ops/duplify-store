@@ -285,7 +285,7 @@ export default function MigrationProgress() {
     <s-page heading="Migration progress" inlineSize="large">
       {job.protectedCustomerDataBlocked && (
         <s-section>
-          <ProtectedCustomerDataBanner tone="critical" />
+          <ProtectedCustomerDataBanner tone="critical" sourceShop={job.source} />
         </s-section>
       )}
       {job.missingPermissions.length > 0 && (
