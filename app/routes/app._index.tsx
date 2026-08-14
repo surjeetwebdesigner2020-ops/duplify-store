@@ -267,13 +267,33 @@ const ALL_RESOURCES = [
 
 const TYPE_TO_RESOURCES: Record<string, string[]> = {
   FULL: ALL_RESOURCES,
-  PRODUCTS: ["products", "images", "inventory"],
+  // Product metadata is part of a complete product copy. Definitions and
+  // metaobject entries are included automatically so merchants do not end up
+  // with a visible metafield definition but an empty reference value.
+  PRODUCTS: [
+    "metafield_definitions",
+    "metaobject_definitions",
+    "products",
+    "images",
+    "inventory",
+    "metaobjects",
+  ],
   COLLECTIONS: ["collections"],
   CUSTOMERS: ["customers"],
   CONTENT: ["pages", "blogs", "files", "menus"],
   THEME: ["theme"],
   CUSTOM: [],
 };
+
+function includeProductMetadata(resources: string[]): string[] {
+  if (!resources.includes("products")) return resources;
+  return Array.from(new Set([
+    ...resources,
+    "metafield_definitions",
+    "metaobject_definitions",
+    "metaobjects",
+  ]));
+}
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -295,6 +315,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   } else {
     selectedResources = TYPE_TO_RESOURCES[type] ?? [];
   }
+  selectedResources = includeProductMetadata(selectedResources);
 
   if (!THEME_MIGRATION_ENABLED && selectedResources.includes("theme")) {
     return {
@@ -396,7 +417,7 @@ const MIGRATION_TYPES: Array<{
   { value: "FULL", label: "Full store migration", supported: true },
   {
     value: "PRODUCTS",
-    label: "Products only (variants, images & inventory)",
+    label: "Products (variants, images, inventory & metadata)",
     supported: true,
   },
   { value: "COLLECTIONS", label: "Collections only", supported: true },
@@ -473,8 +494,9 @@ export default function Overview() {
     }
   }, [readyConnections, storeConnectionId]);
 
-  const selectedResources =
-    type === "CUSTOM" ? resources : (TYPE_TO_RESOURCES[type] ?? []);
+  const selectedResources = includeProductMetadata(
+    type === "CUSTOM" ? resources : (TYPE_TO_RESOURCES[type] ?? []),
+  );
   // READY pairs are never blocked by install/permission banners on Overview.
   // Scan/import itself enforces real Shopify access; this UI was causing false blocks.
   const hasThemeLimitation = selectedResources.includes("theme");
