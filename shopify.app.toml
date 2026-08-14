@@ -2,7 +2,7 @@
 
 client_id = "23ab0fd6f5d07f346529251e7bf66b3b"
 name = "store duplicate"
-application_url = "https://duplify-store-production-6471.up.railway.app"
+application_url = "https://duplify-store-production-e129.up.railway.app"
 embedded = true
 
 [access_scopes]
@@ -12,7 +12,7 @@ scopes = "read_content,read_customers,read_discounts,read_draft_orders,read_file
 
 [auth]
 redirect_urls = [
-  "https://duplify-store-production-6471.up.railway.app/auth/callback"
+  "https://duplify-store-production-e129.up.railway.app/auth/callback"
 ]
 
 [webhooks]

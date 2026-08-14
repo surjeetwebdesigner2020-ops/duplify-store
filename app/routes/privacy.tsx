@@ -106,7 +106,7 @@ export default function PrivacyPolicy() {
       <p style={{ marginTop: 40, color: "#6d7175", fontSize: 14 }}>
         Partner Dashboard privacy policy URL:{" "}
         <code>/privacy</code> on your Duplify app host (for example{" "}
-        <code>https://duplify-store-production-6471.up.railway.app/privacy</code>).
+        <code>https://duplify-store-production-e129.up.railway.app/privacy</code>).
       </p>
     </main>
   );
