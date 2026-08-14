@@ -6,7 +6,13 @@ import {
   CUSTOMERS_PAGE_QUERY,
   CUSTOMER_BY_EMAIL_QUERY,
 } from "../../shopify/queries/customers";
-import { CUSTOMER_CREATE_MUTATION, type CustomerCreateInput } from "../../shopify/mutations/customers";
+import {
+  CUSTOMER_CREATE_MUTATION,
+  CUSTOMER_EMAIL_CONSENT_UPDATE_MUTATION,
+  CUSTOMER_SMS_CONSENT_UPDATE_MUTATION,
+  CUSTOMER_UPDATE_MUTATION,
+  type CustomerCreateInput,
+} from "../../shopify/mutations/customers";
 import { getLiveMapping, saveMapping } from "../idMapping.service";
 import { isMigrationCancelled, logEvent } from "../migrationJob.service";
 import type { ConflictStrategy, CustomerBulkPayload } from "../types";
@@ -21,6 +27,16 @@ function normalizeCustomerPayload(
     return { ...raw, addresses: [raw.defaultAddress] };
   }
   return { ...raw, addresses: [] };
+}
+
+function migratableCustomerMetafields(customer: CustomerBulkPayload) {
+  return (customer.metafields ?? []).filter((metafield) => {
+    const namespace = metafield.namespace.trim().toLowerCase();
+    return namespace.length > 0 && metafield.key.trim().length > 0 &&
+      metafield.type.trim().length > 0 && !namespace.startsWith("app--") &&
+      !namespace.startsWith("$app") && namespace !== "shopify" &&
+      !metafield.type.toLowerCase().includes("reference");
+  });
 }
 
 // Small retry helper for transient network/HTTP errors (rate limits, timeouts, 5xx)
@@ -90,7 +106,15 @@ export async function ensureCustomerItems(job: MigrationJobWithConnection): Prom
     }
     const grouped = await collectGroupedBulkResults(op.url);
     customers = grouped.map((record) =>
-      normalizeCustomerPayload(record.parent as unknown as CustomerBulkPayload),
+      normalizeCustomerPayload({
+        ...(record.parent as unknown as CustomerBulkPayload),
+        metafields: (record.childrenByField.Metafield ?? []).map((field) => ({
+          namespace: String(field.namespace ?? ""),
+          key: String(field.key ?? ""),
+          type: String(field.type ?? ""),
+          value: String(field.value ?? ""),
+        })),
+      }),
     );
   } catch (error) {
     await logEvent(
@@ -127,6 +151,18 @@ interface CustomerCreateResponse {
 
 interface CustomerByEmailResponse {
   customers: { edges: Array<{ node: { id: string; email: string | null } }> };
+}
+
+interface CustomerMutationResponse {
+  customerUpdate?: CustomerCreateResponse["customerCreate"];
+  customerEmailMarketingConsentUpdate?: {
+    customer: { id: string } | null;
+    userErrors: Array<{ field: string[]; message: string }>;
+  };
+  customerSmsMarketingConsentUpdate?: {
+    customer: { id: string } | null;
+    userErrors: Array<{ field: string[]; message: string }>;
+  };
 }
 
 export async function runCustomersStage(job: MigrationJobWithConnection): Promise<void> {
@@ -171,7 +207,7 @@ async function processCustomerItem(
     "customer",
     item.sourceId,
   );
-  if (alreadyMapped) {
+  if (alreadyMapped && conflictStrategy === "SKIP") {
     await db.migrationItem.update({
       where: { id: item.id },
       data: { status: "COMPLETED", destinationId: alreadyMapped.destinationId, errorMessage: null },
@@ -179,26 +215,32 @@ async function processCustomerItem(
     return;
   }
 
-  if (!customer.email) {
+  if (!customer.email && !customer.phone) {
     await db.migrationItem.update({
       where: { id: item.id },
-      data: { status: "SKIPPED", errorMessage: "Customer has no email address (dedup key required)" },
+      data: { status: "SKIPPED", errorMessage: "Customer has no email or phone (dedup key required)" },
     });
     return;
   }
 
-  const customerEmail = customer.email;
+  const customerLabel = customer.email ?? customer.phone!;
 
-  let existingDestinationId: string | null = null;
+  let existingDestinationId: string | null = alreadyMapped?.destinationId ?? null;
   try {
-    const existing = await retry(() =>
-      destAdmin.graphql<CustomerByEmailResponse>(
-        CUSTOMER_BY_EMAIL_QUERY,
-        { query: `email:'${customerEmail.replace(/'/g, "")}'` },
-        5,
-      ),
-    );
-    existingDestinationId = existing.customers.edges[0]?.node.id ?? null;
+    if (!existingDestinationId) {
+      const existing = await retry(() =>
+        destAdmin.graphql<CustomerByEmailResponse>(
+          CUSTOMER_BY_EMAIL_QUERY,
+          {
+            query: customer.email
+              ? `email:'${customer.email.replace(/'/g, "")}'`
+              : `phone:'${customer.phone!.replace(/'/g, "")}'`,
+          },
+          5,
+        ),
+      );
+      existingDestinationId = existing.customers.edges[0]?.node.id ?? null;
+    }
   } catch (error) {
     await fail(job.id, item.id, `Conflict check failed: ${errMsg(error)}`);
     return;
@@ -216,24 +258,8 @@ async function processCustomerItem(
       data: {
         status: "SKIPPED",
         destinationId: existingDestinationId,
-        errorMessage: "Customer with this email already exists on the destination store",
+        errorMessage: "Customer with this email or phone already exists on the destination store",
       },
-    });
-    return;
-  }
-
-  if (existingDestinationId && conflictStrategy !== "CREATE_NEW") {
-    // Customers can't be "overwritten" via customerCreate — map to the
-    // existing record so downstream stages (e.g. Orders) can still reference it.
-    await saveMapping({
-      storeConnectionId,
-      resourceType: "customer",
-      sourceId: item.sourceId,
-      destinationId: existingDestinationId,
-    });
-    await db.migrationItem.update({
-      where: { id: item.id },
-      data: { status: "COMPLETED", destinationId: existingDestinationId, errorMessage: null },
     });
     return;
   }
@@ -241,7 +267,7 @@ async function processCustomerItem(
   const input: CustomerCreateInput = {
     firstName: customer.firstName ?? undefined,
     lastName: customer.lastName ?? undefined,
-    email: customerEmail,
+    email: customer.email ?? undefined,
     phone: customer.phone ?? undefined,
     note: customer.note ?? undefined,
     tags: customer.tags,
@@ -258,39 +284,103 @@ async function processCustomerItem(
       lastName: a.lastName ?? undefined,
       company: a.company ?? undefined,
     })),
+    metafields: migratableCustomerMetafields(customer),
   };
 
   try {
-    const result = await retry(() =>
-      destAdmin.graphql<CustomerCreateResponse>(
-        CUSTOMER_CREATE_MUTATION,
-        { input },
-        20,
-      ),
-    );
+    const updating = Boolean(existingDestinationId && conflictStrategy !== "CREATE_NEW");
+    const result = updating
+      ? await retry(() =>
+          destAdmin.graphql<CustomerMutationResponse>(
+            CUSTOMER_UPDATE_MUTATION,
+            { input: { ...input, id: existingDestinationId } },
+            20,
+          ),
+        )
+      : await retry(() =>
+          destAdmin.graphql<CustomerCreateResponse>(
+            CUSTOMER_CREATE_MUTATION,
+            { input },
+            20,
+          ),
+        );
+    const payload = updating
+      ? (result as CustomerMutationResponse).customerUpdate
+      : (result as CustomerCreateResponse).customerCreate;
 
     if (
-      !result.customerCreate ||
-      (result.customerCreate.userErrors?.length ?? 0) > 0 ||
-      !result.customerCreate.customer
+      !payload ||
+      (payload.userErrors?.length ?? 0) > 0 ||
+      !payload.customer
     ) {
       const message = joinUserErrors(
-        result.customerCreate?.userErrors,
-        "Unknown customerCreate error",
+        payload?.userErrors,
+        updating ? "Unknown customerUpdate error" : "Unknown customerCreate error",
       );
       await fail(job.id, item.id, message);
       return;
     }
 
-    const destinationId = result.customerCreate.customer.id;
+    const destinationId = payload.customer.id;
+    await copyMarketingConsent(job.id, destAdmin, destinationId, customer);
     await saveMapping({ storeConnectionId, resourceType: "customer", sourceId: item.sourceId, destinationId });
     await db.migrationItem.update({
       where: { id: item.id },
       data: { status: "COMPLETED", destinationId, errorMessage: null },
     });
-    await logEvent(job.id, "INFO", `Migrated customer "${customerEmail}"`, { sourceId: item.sourceId });
+    await logEvent(job.id, "INFO", `${updating ? "Updated" : "Created"} customer "${customerLabel}"`, {
+      sourceId: item.sourceId,
+      destinationId,
+    });
   } catch (error) {
     await fail(job.id, item.id, errMsg(error));
+  }
+}
+
+async function copyMarketingConsent(
+  migrationJobId: string,
+  destAdmin: ReturnType<typeof createAdminClient>,
+  destinationId: string,
+  customer: CustomerBulkPayload,
+): Promise<void> {
+  const allowedStates = new Set(["SUBSCRIBED", "UNSUBSCRIBED", "PENDING"]);
+  const emailConsent = customer.emailMarketingConsent;
+  if (customer.email && emailConsent && allowedStates.has(emailConsent.marketingState)) {
+    try {
+      const result = await destAdmin.graphql<CustomerMutationResponse>(
+        CUSTOMER_EMAIL_CONSENT_UPDATE_MUTATION,
+        { input: { customerId: destinationId, emailMarketingConsent: {
+          marketingState: emailConsent.marketingState,
+          marketingOptInLevel: emailConsent.marketingOptInLevel ?? undefined,
+          consentUpdatedAt: emailConsent.consentUpdatedAt ?? undefined,
+        } } },
+        10,
+      );
+      const message = joinUserErrors(result.customerEmailMarketingConsentUpdate?.userErrors, "");
+      if (message) await logEvent(migrationJobId, "WARN", `Email marketing consent skipped: ${message}`);
+    } catch (error) {
+      await logEvent(migrationJobId, "WARN", `Email marketing consent skipped: ${errMsg(error)}`);
+    }
+  }
+
+  const smsConsent = customer.smsMarketingConsent;
+  if (customer.phone && smsConsent && allowedStates.has(smsConsent.marketingState)) {
+    try {
+      const result = await destAdmin.graphql<CustomerMutationResponse>(
+        CUSTOMER_SMS_CONSENT_UPDATE_MUTATION,
+        { input: { customerId: destinationId, smsMarketingConsent: {
+          marketingState: smsConsent.marketingState,
+          marketingOptInLevel: smsConsent.marketingOptInLevel ?? undefined,
+          consentUpdatedAt: smsConsent.consentUpdatedAt ?? undefined,
+          consentCollectedFrom: smsConsent.consentCollectedFrom ?? undefined,
+        } } },
+        10,
+      );
+      const message = joinUserErrors(result.customerSmsMarketingConsentUpdate?.userErrors, "");
+      if (message) await logEvent(migrationJobId, "WARN", `SMS marketing consent skipped: ${message}`);
+    } catch (error) {
+      await logEvent(migrationJobId, "WARN", `SMS marketing consent skipped: ${errMsg(error)}`);
+    }
   }
 }
 

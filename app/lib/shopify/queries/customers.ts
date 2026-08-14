@@ -11,6 +11,9 @@ export const BULK_CUSTOMERS_QUERY = `
         note
         tags
         taxExempt
+        emailMarketingConsent { marketingState marketingOptInLevel consentUpdatedAt }
+        smsMarketingConsent { marketingState marketingOptInLevel consentUpdatedAt consentCollectedFrom }
+        metafields { edges { node { id namespace key type value } } }
         defaultAddress {
           address1
           address2
@@ -41,6 +44,9 @@ export const CUSTOMERS_PAGE_QUERY = `#graphql
           note
           tags
           taxExempt
+          emailMarketingConsent { marketingState marketingOptInLevel consentUpdatedAt }
+          smsMarketingConsent { marketingState marketingOptInLevel consentUpdatedAt consentCollectedFrom }
+          metafields(first: 100) { nodes { namespace key type value } }
           defaultAddress {
             address1
             address2
@@ -61,7 +67,7 @@ export const CUSTOMERS_PAGE_QUERY = `#graphql
 `;
 
 export const CUSTOMER_BY_EMAIL_QUERY = `#graphql
-  query duplifyCustomerByEmail($query: String!) {
+  query duplifyCustomerByIdentifier($query: String!) {
     customers(first: 1, query: $query) {
       edges { node { id email } }
     }

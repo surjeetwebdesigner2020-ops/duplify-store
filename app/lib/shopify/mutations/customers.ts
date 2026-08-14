@@ -10,7 +10,35 @@ export const CUSTOMER_CREATE_MUTATION = `#graphql
   }
 `;
 
+export const CUSTOMER_UPDATE_MUTATION = `#graphql
+  mutation duplifyCustomerUpdate($input: CustomerInput!) {
+    customerUpdate(input: $input) {
+      customer { id email phone }
+      userErrors { field message }
+    }
+  }
+`;
+
+export const CUSTOMER_EMAIL_CONSENT_UPDATE_MUTATION = `#graphql
+  mutation duplifyCustomerEmailConsent($input: CustomerEmailMarketingConsentUpdateInput!) {
+    customerEmailMarketingConsentUpdate(input: $input) {
+      customer { id }
+      userErrors { field message }
+    }
+  }
+`;
+
+export const CUSTOMER_SMS_CONSENT_UPDATE_MUTATION = `#graphql
+  mutation duplifyCustomerSmsConsent($input: CustomerSmsMarketingConsentUpdateInput!) {
+    customerSmsMarketingConsentUpdate(input: $input) {
+      customer { id }
+      userErrors { field message }
+    }
+  }
+`;
+
 export interface CustomerCreateInput {
+  id?: string;
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -30,4 +58,5 @@ export interface CustomerCreateInput {
     lastName?: string;
     company?: string;
   }>;
+  metafields?: Array<{ namespace: string; key: string; type: string; value: string }>;
 }

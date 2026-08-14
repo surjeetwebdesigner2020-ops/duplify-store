@@ -59,6 +59,18 @@ export interface CustomerBulkPayload {
   note: string | null;
   tags: string[];
   taxExempt: boolean;
+  metafields?: Array<{ namespace: string; key: string; type: string; value: string }>;
+  emailMarketingConsent?: {
+    marketingState: string;
+    marketingOptInLevel: string | null;
+    consentUpdatedAt: string | null;
+  } | null;
+  smsMarketingConsent?: {
+    marketingState: string;
+    marketingOptInLevel: string | null;
+    consentUpdatedAt: string | null;
+    consentCollectedFrom: string | null;
+  } | null;
   addresses?: Array<{
     address1: string | null;
     address2: string | null;
