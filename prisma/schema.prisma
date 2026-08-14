@@ -1,0 +1,267 @@
+// Prisma schema for Store Duplicate
+// Database: PostgreSQL (dev uses local postgres)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ---------------------------------------------------------------------------
+// Shopify OAuth session storage (required shape for @shopify/shopify-app-session-storage-prisma)
+// ---------------------------------------------------------------------------
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+
+  @@index([shop])
+}
+
+// ---------------------------------------------------------------------------
+// App domain model
+// ---------------------------------------------------------------------------
+
+// Every shop that has completed OAuth with this app, whether as the embedded
+// (destination) host or via the external, non-embedded source-store flow.
+model Shop {
+  id                   String    @id @default(cuid())
+  shopDomain           String    @unique
+  accessTokenEncrypted String
+  scope                String
+  isActive             Boolean   @default(true)
+  installedAt          DateTime  @default(now())
+  uninstalledAt        DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  connectionsOwned         StoreConnection[] @relation("OwnerShop")
+  connectionsAsSource      StoreConnection[] @relation("SourceShop")
+  connectionsAsDestination StoreConnection[] @relation("DestinationShop")
+  webhookEvents            WebhookEvent[]
+  appSetting               AppSetting?
+
+  @@index([isActive])
+}
+
+enum StoreConnectionStatus {
+  PENDING
+  READY
+  ARCHIVED
+}
+
+// Pairs a source shop and a destination shop for migration purposes.
+model StoreConnection {
+  id                String                @id @default(cuid())
+  ownerShopId       String
+  ownerShop         Shop                  @relation("OwnerShop", fields: [ownerShopId], references: [id])
+  sourceShopId      String
+  sourceShop        Shop                  @relation("SourceShop", fields: [sourceShopId], references: [id])
+  destinationShopId String
+  destinationShop   Shop                  @relation("DestinationShop", fields: [destinationShopId], references: [id])
+  status            StoreConnectionStatus @default(PENDING)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  migrationJobs MigrationJob[]
+  idMappings    IdMapping[]
+  conflicts     Conflict[]
+
+  @@unique([sourceShopId, destinationShopId])
+  @@index([ownerShopId])
+}
+
+enum MigrationType {
+  FULL
+  PRODUCTS
+  COLLECTIONS
+  CUSTOMERS
+  CONTENT
+  THEME
+  CUSTOM
+}
+
+enum MigrationJobStatus {
+  DRAFT
+  SCANNING
+  SCANNED
+  QUEUED
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model MigrationJob {
+  id                    String             @id @default(cuid())
+  storeConnectionId     String
+  storeConnection       StoreConnection    @relation(fields: [storeConnectionId], references: [id])
+  type                  MigrationType
+  status                MigrationJobStatus @default(DRAFT)
+  // Resource types included in this job, e.g. ["products","variants","images","collections"].
+  selectedResources     Json
+  // Per-resource-type conflict strategy, e.g. { "products": "MERGE", "collections": "SKIP" }.
+  conflictStrategy      Json
+  // Populated by the scan worker: totals, conflicts, unsupported items, missing permissions.
+  scanSummary           Json?
+  totalRecords          Int                @default(0)
+  completedRecords      Int                @default(0)
+  failedRecords         Int                @default(0)
+  skippedRecords        Int                @default(0)
+  currentStage          String?
+  startedAt             DateTime?
+  completedAt           DateTime?
+  estimatedCompletionAt DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  items     MigrationItem[]
+  logs      MigrationLog[]
+  conflicts Conflict[]
+
+  @@index([storeConnectionId, status])
+  @@index([createdAt])
+}
+
+enum MigrationItemStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  SKIPPED
+  FAILED
+  RETRYING
+}
+
+model MigrationItem {
+  id             String              @id @default(cuid())
+  migrationJobId String
+  migrationJob   MigrationJob        @relation(fields: [migrationJobId], references: [id])
+  resourceType   String
+  stage          String
+  sourceId       String
+  destinationId  String?
+  status         MigrationItemStatus @default(PENDING)
+  attempt        Int                 @default(0)
+  errorMessage   String?
+  // Snapshot of the source payload, used for retries without re-fetching from the source shop.
+  payload        Json?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([migrationJobId, status])
+  @@index([migrationJobId, resourceType])
+  @@index([migrationJobId, stage])
+}
+
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+  DEBUG
+}
+
+// Doubles as the audit trail: every mutating action (create/update/skip/overwrite/retry)
+// writes a row here.
+model MigrationLog {
+  id             String       @id @default(cuid())
+  migrationJobId String
+  migrationJob   MigrationJob @relation(fields: [migrationJobId], references: [id])
+  level          LogLevel     @default(INFO)
+  message        String
+  meta           Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([migrationJobId, createdAt])
+  @@index([migrationJobId, level])
+}
+
+// Permanent source-id -> destination-id lookup, reused across every migration run
+// for a given StoreConnection to keep retries and re-runs idempotent.
+model IdMapping {
+  id                String          @id @default(cuid())
+  storeConnectionId String
+  storeConnection   StoreConnection @relation(fields: [storeConnectionId], references: [id])
+  resourceType      String
+  sourceId          String
+  destinationId     String
+  sourceHandle      String?
+  destinationHandle String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([storeConnectionId, resourceType, sourceId])
+  @@index([storeConnectionId, resourceType, destinationId])
+}
+
+enum ConflictReason {
+  DUPLICATE_HANDLE
+  DUPLICATE_SKU
+  DUPLICATE_EMAIL
+}
+
+enum ConflictResolution {
+  UNRESOLVED
+  OVERWRITE
+  SKIP
+  MERGE
+  CREATE_NEW
+}
+
+model Conflict {
+  id                   String             @id @default(cuid())
+  migrationJobId       String
+  migrationJob         MigrationJob       @relation(fields: [migrationJobId], references: [id])
+  storeConnectionId    String
+  storeConnection      StoreConnection    @relation(fields: [storeConnectionId], references: [id])
+  resourceType         String
+  sourceId             String
+  sourceHandle         String?
+  matchedDestinationId String?
+  conflictReason       ConflictReason
+  resolution           ConflictResolution @default(UNRESOLVED)
+  resolvedAt           DateTime?
+  createdAt            DateTime           @default(now())
+
+  @@index([migrationJobId, resolution])
+}
+
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  shopId      String
+  shop        Shop      @relation(fields: [shopId], references: [id])
+  topic       String
+  payload     Json
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([shopId, topic])
+}
+
+model AppSetting {
+  id                      String   @id @default(cuid())
+  shopId                  String   @unique
+  shop                    Shop     @relation(fields: [shopId], references: [id])
+  defaultConflictStrategy Json?
+  notificationEmail       String?
+  timezone                String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
