@@ -10,6 +10,10 @@ export function ProtectedCustomerDataBanner({
   tone?: "info" | "warning" | "critical";
   sourceShop?: string;
 }) {
+  const sourceApprovalHref = sourceShop
+    ? `/auth/external/begin?shop=${encodeURIComponent(sourceShop)}&role=SOURCE`
+    : null;
+
   return (
     <s-banner tone={tone} heading="Customer access must be enabled in Shopify">
       <s-stack direction="block" gap="small-300">
@@ -20,8 +24,18 @@ export function ProtectedCustomerDataBanner({
         {sourceShop && (
           <s-paragraph>
             Source store: <strong>{sourceShop}</strong>. Customer data will be
-            imported from this store after the app-level access is enabled.
+            imported from this store after its owner approves customer access.
           </s-paragraph>
+        )}
+        {sourceApprovalHref && (
+          <s-button
+            slot="secondary-actions"
+            href={sourceApprovalHref}
+            target="_blank"
+            variant="primary"
+          >
+            Approve customer access on source store
+          </s-button>
         )}
         <ol style={{ margin: "0", paddingLeft: "22px", lineHeight: 1.7 }}>
           <li>Open the Shopify Dev Dashboard.</li>
@@ -49,7 +63,7 @@ export function ProtectedCustomerDataBanner({
           slot="secondary-actions"
           href={SHOPIFY_PROTECTED_CUSTOMER_DATA_URL}
           target="_blank"
-          variant="primary"
+          variant="secondary"
         >
           Open API access requests
         </s-button>
