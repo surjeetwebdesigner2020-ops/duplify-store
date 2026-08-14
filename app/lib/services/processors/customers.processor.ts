@@ -187,12 +187,14 @@ async function processCustomerItem(
     return;
   }
 
+  const customerEmail = customer.email;
+
   let existingDestinationId: string | null = null;
   try {
     const existing = await retry(() =>
       destAdmin.graphql<CustomerByEmailResponse>(
         CUSTOMER_BY_EMAIL_QUERY,
-        { query: `email:'${customer.email.replace(/'/g, "")}'` },
+        { query: `email:'${customerEmail.replace(/'/g, "")}'` },
         5,
       ),
     );
@@ -239,7 +241,7 @@ async function processCustomerItem(
   const input: CustomerCreateInput = {
     firstName: customer.firstName ?? undefined,
     lastName: customer.lastName ?? undefined,
-    email: customer.email,
+    email: customerEmail,
     phone: customer.phone ?? undefined,
     note: customer.note ?? undefined,
     tags: customer.tags,
@@ -286,7 +288,7 @@ async function processCustomerItem(
       where: { id: item.id },
       data: { status: "COMPLETED", destinationId, errorMessage: null },
     });
-    await logEvent(job.id, "INFO", `Migrated customer "${customer.email}"`, { sourceId: item.sourceId });
+    await logEvent(job.id, "INFO", `Migrated customer "${customerEmail}"`, { sourceId: item.sourceId });
   } catch (error) {
     await fail(job.id, item.id, errMsg(error));
   }

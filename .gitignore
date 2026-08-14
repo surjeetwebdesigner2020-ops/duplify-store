@@ -9,6 +9,11 @@ dist/
 
 *.sqlite
 *.sqlite-journal
+/prisma/dev.db
+/prisma/dev.db-journal
+
+# Local development process logs
+.shopify-dev.*.log
 
 .DS_Store
 npm-debug.log*
