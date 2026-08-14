@@ -1,0 +1,18 @@
+client_id = "9d1cb76c3edf8db57b410e2d75268a14"
+name = "Duplify Store"
+application_url = "https://duplify-store-production-6471.up.railway.app"
+embedded = true
+
+[access_scopes]
+scopes = "read_content,read_customers,read_discounts,read_draft_orders,read_files,read_inventory,read_locations,read_metaobject_definitions,read_metaobjects,read_online_store_navigation,read_orders,read_products,read_themes,write_content,write_customers,write_discounts,write_draft_orders,write_files,write_inventory,write_metaobject_definitions,write_metaobjects,write_online_store_navigation,write_orders,write_products,write_themes"
+
+[auth]
+redirect_urls = ["https://duplify-store-production-6471.up.railway.app/auth/callback"]
+
+[webhooks]
+api_version = "2026-07"
+
+[build]
+# This config is used by `shopify app dev`, so point App Home and OAuth
+# callbacks at the temporary local tunnel while the development server runs.
+automatically_update_urls_on_dev = true

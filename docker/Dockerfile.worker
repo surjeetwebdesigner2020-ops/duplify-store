@@ -1,0 +1,14 @@
+# Worker process: consumes the scan/migration BullMQ queues.
+# Build from the repo root: docker build -f docker/Dockerfile.worker -t duplify-worker .
+FROM node:20-alpine
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY . .
+
+CMD ["npm", "run", "docker-start-worker"]

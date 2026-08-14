@@ -1,13 +1,14 @@
-// Prisma schema for Store Duplicate
-// Database: PostgreSQL (dev uses local postgres)
+// Prisma schema for Duplify Store.
+// See plan doc for the rationale behind each table:
+// C:\Users\b2b\.claude\plans\sharded-shimmying-feather.md
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ---------------------------------------------------------------------------
