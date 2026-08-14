@@ -27,16 +27,6 @@ export function ProtectedCustomerDataBanner({
             imported from this store after its owner approves customer access.
           </s-paragraph>
         )}
-        {sourceApprovalHref && (
-          <s-button
-            slot="secondary-actions"
-            href={sourceApprovalHref}
-            target="_blank"
-            variant="primary"
-          >
-            Approve customer access on source store
-          </s-button>
-        )}
         <ol style={{ margin: "0", paddingLeft: "22px", lineHeight: 1.7 }}>
           <li>Open the Shopify Dev Dashboard.</li>
           <li>
@@ -59,23 +49,30 @@ export function ProtectedCustomerDataBanner({
           Suggested reason: “Merchants use this app to migrate customer records
           between Shopify stores they own or administer.”
         </s-paragraph>
-        <s-button
-          slot="secondary-actions"
-          href={SHOPIFY_PROTECTED_CUSTOMER_DATA_URL}
-          target="_blank"
-          variant="secondary"
-        >
-          Open API access requests
-        </s-button>
-        <s-button
-          slot="secondary-actions"
-          href={SHOPIFY_PROTECTED_CUSTOMER_DATA_GUIDE_URL}
-          target="_blank"
-          variant="secondary"
-        >
-          View Shopify guide
-        </s-button>
       </s-stack>
+      {sourceApprovalHref && (
+        <s-button
+          slot="primary-action"
+          href={sourceApprovalHref}
+          target="_blank"
+        >
+          Approve customer access on source store
+        </s-button>
+      )}
+      <s-button
+        slot="secondary-actions"
+        href={SHOPIFY_PROTECTED_CUSTOMER_DATA_URL}
+        target="_blank"
+      >
+        Open API access requests
+      </s-button>
+      <s-button
+        slot="secondary-actions"
+        href={SHOPIFY_PROTECTED_CUSTOMER_DATA_GUIDE_URL}
+        target="_blank"
+      >
+        View Shopify guide
+      </s-button>
     </s-banner>
   );
 }

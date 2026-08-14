@@ -319,27 +319,20 @@ export default function MigrationScan() {
                   : failureReason}
               </s-paragraph>
               {isProtectedCustomerDataError ? (
-                <s-stack direction="inline" gap="base">
+                <>
                   <s-button
                     slot="primary-action"
-                   href={protectedCustomerDataReviewUrl}
-                    target="_blank"
-                  >
-                   Open Shopify review
-                  </s-button>
-                  <s-button
-                    slot="secondary-actions"
-                    href={reconnectStoreAppHref}
-                    target="_blank"
-                  >
-                    Open store app
-                  </s-button>
-                  <s-button
-                    slot="secondary-actions"
                     href={reconnectHref}
                     target="_blank"
                   >
-                    Reauthorize store
+                    Approve customer access on source store
+                  </s-button>
+                  <s-button
+                    slot="secondary-actions"
+                    href={protectedCustomerDataReviewUrl}
+                    target="_blank"
+                  >
+                    App-level API access
                   </s-button>
                   <s-button
                     slot="secondary-actions"
@@ -353,7 +346,7 @@ export default function MigrationScan() {
                   >
                     Scan again
                   </s-button>
-                </s-stack>
+                </>
               ) : (
                 <>
                   {isAuthFailure && (
