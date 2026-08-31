@@ -25,9 +25,10 @@ import { HeroBanner } from "../components/dashboard/HeroBanner";
 import { MigrationList } from "../components/dashboard/MigrationList";
 import { EmptyState } from "../components/shared/EmptyState";
 
-// Shopify must approve write_themes before a public app can create or edit
-// even an unpublished theme. Enable only after that exemption is approved.
-const THEME_MIGRATION_ENABLED = false;
+// Theme migration is available when Shopify grants read_themes/write_themes
+// to the connected stores. The pre-migration scan remains the authority and
+// blocks safely when either store has not granted the required scope.
+const THEME_MIGRATION_ENABLED = true;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -263,6 +264,7 @@ const ALL_RESOURCES = [
   "metaobjects",
   "discounts",
   "orders",
+  "theme",
 ];
 
 const TYPE_TO_RESOURCES: Record<string, string[]> = {

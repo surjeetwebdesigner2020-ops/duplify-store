@@ -228,7 +228,9 @@ export async function runScan(migrationJobId: string): Promise<void> {
     }
 
     if (resources.includes("theme") && !summary.resources.theme) {
-      summary.resources.theme = await scanTheme(sourceAdmin);
+      const chosenThemeId = (job.conflictStrategy as Record<string, unknown>)
+        .__themeSourceId as string | undefined;
+      summary.resources.theme = await scanTheme(sourceAdmin, chosenThemeId);
     }
 
     const totalRecords = Object.values(summary.resources).reduce(
@@ -413,22 +415,42 @@ async function scanApprox(
   };
 }
 
-async function scanTheme(sourceAdmin: AdminClient): Promise<ResourceScanResult> {
+async function scanTheme(
+  sourceAdmin: AdminClient,
+  chosenThemeId?: string,
+): Promise<ResourceScanResult> {
   try {
-    const result = await sourceAdmin.graphql<{
-      themes: { edges: Array<{ node: { id: string; name: string } }> };
-    }>(
-      `#graphql
-        query duplifyThemeScan {
-          themes(first: 1, roles: [MAIN]) {
-            edges { node { id name } }
-          }
-        }
-      `,
-      undefined,
-      5,
-    );
-    const theme = result.themes?.edges?.[0]?.node;
+    const theme = chosenThemeId
+      ? (
+          await sourceAdmin.graphql<{
+            node: { id: string; name: string } | null;
+          }>(
+            `#graphql
+              query duplifySelectedThemeScan($id: ID!) {
+                node(id: $id) {
+                  ... on OnlineStoreTheme { id name }
+                }
+              }
+            `,
+            { id: chosenThemeId },
+            5,
+          )
+        ).node
+      : (
+          await sourceAdmin.graphql<{
+            themes: { edges: Array<{ node: { id: string; name: string } }> };
+          }>(
+            `#graphql
+              query duplifyThemeScan {
+                themes(first: 1, roles: [MAIN]) {
+                  edges { node { id name } }
+                }
+              }
+            `,
+            undefined,
+            5,
+          )
+        ).themes?.edges?.[0]?.node;
     return {
       total: theme ? 1 : 0,
       sampledConflicts: 0,
@@ -438,7 +460,7 @@ async function scanTheme(sourceAdmin: AdminClient): Promise<ResourceScanResult> 
         ? [
             `Will copy "${theme.name}" files into an unpublished theme on destination (auto-created if needed)`,
           ]
-        : ["No live theme found on source"],
+        : [chosenThemeId ? "Selected source theme was not found" : "No live theme found on source"],
     };
   } catch {
     return {
