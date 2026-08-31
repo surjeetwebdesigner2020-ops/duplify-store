@@ -24,7 +24,9 @@ export const MENUS_QUERY = `#graphql
 `;
 
 export const MENU_BY_HANDLE_QUERY = `#graphql
-  query duplifyMenuByHandle($handle: String!) {
-    menu(handle: $handle) { id handle }
+  query duplifyMenuByHandle {
+    menus(first: 250) {
+      edges { node { id handle } }
+    }
   }
 `;

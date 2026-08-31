@@ -42,17 +42,15 @@ export interface BlogCreateInput {
 }
 
 export const BLOG_UPDATE_MUTATION = `#graphql
-  mutation duplifyBlogUpdate($blog: BlogUpdateInput!) {
-    blogUpdate(blog: $blog) {
+  mutation duplifyBlogUpdate($id: ID!, $blog: BlogUpdateInput!) {
+    blogUpdate(id: $id, blog: $blog) {
       blog { id handle }
       userErrors { field message }
     }
   }
 `;
 
-export interface BlogUpdateInput extends BlogCreateInput {
-  id: string;
-}
+export type BlogUpdateInput = BlogCreateInput;
 
 export const ARTICLE_CREATE_MUTATION = `#graphql
   mutation duplifyArticleCreate($article: ArticleCreateInput!) {

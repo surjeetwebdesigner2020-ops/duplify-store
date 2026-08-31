@@ -155,7 +155,7 @@ export async function runBlogsStage(job: MigrationJobWithConnection): Promise<vo
           ? (
               await destAdmin.graphql<BlogUpdateResponse>(
               BLOG_UPDATE_MUTATION,
-              { blog: { ...input, id: existingId! } satisfies BlogUpdateInput },
+              { id: existingId!, blog: input satisfies BlogUpdateInput },
               10,
             )
             ).blogUpdate
