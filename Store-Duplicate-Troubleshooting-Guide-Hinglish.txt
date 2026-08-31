@@ -1,0 +1,210 @@
+STORE DUPLICATE - TROUBLESHOOTING GUIDE
+=======================================
+
+PROJECT
+-------
+Shopify App: store duplicate
+Hosting: Railway
+App Port: 3000
+Database: PostgreSQL
+Queue: Redis / BullMQ
+
+IMPORTANT SECURITY NOTE
+-----------------------
+Is file mein koi password, API secret, database password ya Redis password nahi hai.
+Secrets ko sirf Railway Variables mein rakho. GitHub ya chat mein secret share mat karo.
+
+
+ASLI ISSUE KYA THA?
+-------------------
+App code main problem nahi tha. Multiple configuration problems ek saath thi:
+
+1. Project pehle galat "Duplify Store" Shopify app credentials se connected tha.
+2. Humein "store duplicate" Shopify app chalana tha.
+3. Purana Railway public domain DNS par resolve nahi ho raha tha.
+4. Windows Wi-Fi DNS server Railway domain ke liye REFUSED error de raha tha.
+5. Railway ke SHOPIFY_API_KEY aur SHOPIFY_API_SECRET purane app ke the.
+6. Shopify App Home URL aur OAuth callback ko naye Railway domain se match karna tha.
+
+PostgreSQL aur Redis healthy the. Inko delete ya recreate karne ki zarurat nahi thi.
+
+
+KYA FIX KIYA GAYA?
+------------------
+1. Project ko Shopify ke "store duplicate" app se link kiya.
+2. Broken Railway domain delete karke naya production domain banaya.
+3. Shopify App Home URL aur OAuth callback naye domain par update kiye.
+4. Railway mein sahi SHOPIFY_APP_URL set kiya.
+5. Railway mein "store duplicate" ki sahi API key aur secret set kiye.
+6. Wi-Fi DNS ko 1.1.1.1 aur 8.8.8.8 par set kiya.
+7. DNS cache clear kiya.
+8. GitHub main branch update ki.
+9. Railway deployment SUCCESS verify kiya.
+10. Live public URL par HTTP 200 OK verify kiya.
+
+
+AGAR APP DOBARA BLANK DIKHE
+--------------------------
+In checks ko isi order mein karo:
+
+1. Shopify Admin page par Ctrl + Shift + R dabao.
+2. Railway public URL browser mein direct open karo.
+3. Railway app service ka latest deployment SUCCESS hona chahiye.
+4. App replica RUNNING hona chahiye.
+5. Railway domain ACTIVE aur target port 3000 hona chahiye.
+6. Shopify App Home URL aur Railway SHOPIFY_APP_URL exact same hone chahiye.
+7. OAuth callback hona chahiye:
+   <SHOPIFY_APP_URL>/auth/callback
+8. SHOPIFY_API_KEY aur SHOPIFY_API_SECRET same "store duplicate" app ke hone chahiye.
+9. PostgreSQL aur Redis services Online honi chahiye.
+10. Railway runtime logs mein crash, 401, 500 ya connection error check karo.
+
+
+SAFE CHECK COMMANDS
+-------------------
+railway status --json
+
+railway service list --json
+
+railway deployment list --service duplify-store --limit 5 --json
+
+railway domain list --service duplify-store --json
+
+railway logs --service duplify-store --latest --lines 200 --json
+
+shopify app config validate --json
+
+
+COMMON ERRORS AUR FIX
+---------------------
+
+1. SERVER IP ADDRESS COULD NOT BE FOUND / DNS REFUSED
+
+Pehchan:
+- Railway URL open nahi hota.
+- DNS lookup fail ya REFUSED deta hai.
+
+Fix:
+- Public DNS 1.1.1.1 se domain test karo.
+- Agar sirf local DNS fail ho raha hai, adapter DNS ko set karo:
+  Primary: 1.1.1.1
+  Secondary: 8.8.8.8
+- DNS cache clear karo.
+- Railway domain status ACTIVE verify karo.
+
+
+2. BLANK SHOPIFY IFRAME
+
+Pehchan:
+- Shopify mein app ka title dikhta hai.
+- Content area blank ya broken-file icon dikhata hai.
+
+Fix:
+- App Home URL check karo.
+- OAuth callback URL check karo.
+- Railway domain DNS check karo.
+- Public URL ka HTTP response check karo.
+- Browser hard refresh karo.
+- Railway logs mein request check karo.
+
+
+3. OAUTH / INVALID API KEY / LOGIN LOOP
+
+Pehchan:
+- Unauthorized error.
+- Invalid client error.
+- Login baar-baar repeat hota hai.
+- Callback mismatch error.
+
+Fix:
+- API key aur secret same Shopify app se lo.
+- Shopify config aur Railway variables ko same app identity par rakho.
+- Secret GitHub par kabhi commit mat karo.
+
+
+4. POSTGRESQL ERROR
+
+Pehchan:
+- Prisma migration fail.
+- Database connection error.
+
+Fix:
+- DATABASE_URL Railway PostgreSQL internal URL hona chahiye.
+- Postgres service Online honi chahiye.
+- postgres-volume delete mat karo.
+
+
+5. REDIS / BULLMQ ERROR
+
+Pehchan:
+- Queue start nahi hoti.
+- ECONNREFUSED 6379 error aata hai.
+
+Fix:
+- REDIS_URL Railway Redis internal URL hona chahiye.
+- Redis service Online honi chahiye.
+- Redis password URL ke saath correct hona chahiye.
+
+
+CONFIG VALUES JO MATCH HONE CHAHIYE
+----------------------------------
+PORT
+- 3000
+- Server ko 0.0.0.0 par listen karna chahiye.
+
+SHOPIFY_APP_URL
+- Current Railway HTTPS public domain.
+- Trailing slash mat lagao.
+
+SHOPIFY APPLICATION URL
+- Railway SHOPIFY_APP_URL ke exact barabar.
+
+OAUTH REDIRECT URL
+- <SHOPIFY_APP_URL>/auth/callback
+
+SHOPIFY_API_KEY
+- "store duplicate" Shopify app ki Client ID.
+
+SHOPIFY_API_SECRET
+- Usi "store duplicate" app ka secret.
+- Isko chat ya GitHub mein save mat karo.
+
+DATABASE_URL
+- Railway Postgres internal URL.
+
+REDIS_URL
+- Railway Redis internal URL.
+
+
+KYA DELETE NAHI KARNA
+---------------------
+1. PostgreSQL service ya postgres-volume bina verified backup ke delete mat karo.
+2. Redis volume ko pending jobs ka impact samjhe bina delete mat karo.
+3. Working domain ko replacement plan ke bina delete mat karo.
+4. .env file ya secrets ko GitHub par push mat karo.
+
+
+SECRET LEAK HO JAYE TO
+----------------------
+Agar Shopify secret, database password ya Redis password chat/screenshot mein share ho jaye:
+
+1. Use exposed mano.
+2. Provider dashboard se secret/password rotate karo.
+3. Railway Variable update karo.
+4. New deployment SUCCESS verify karo.
+5. Purana secret dobara use mat karo.
+
+
+FINAL HEALTH CHECK
+------------------
+[ ] Shopify Admin mein store duplicate app dashboard khul raha hai.
+[ ] Railway deployment SUCCESS hai.
+[ ] App replica RUNNING hai.
+[ ] Public URL HTTP 200 de raha hai.
+[ ] PostgreSQL migrations successful hain.
+[ ] Redis connection error nahi hai.
+[ ] Logs mein repeated crash, 401, 500 ya DNS error nahi hai.
+
+
+Last Updated: 15 August 2026
+Project: store duplicate

@@ -171,6 +171,7 @@ export default function MigrationScan() {
   const revalidator = useRevalidator();
   const scanFetcher = useFetcher();
   const startError = searchParams.get("startError");
+  const includesCustomers = job.selectedResources.includes("customers");
 
   const isScanning = job.status === "SCANNING";
   const isMigrationActive = job.status === "QUEUED" || job.status === "RUNNING";
@@ -252,22 +253,26 @@ export default function MigrationScan() {
       </s-section>
 
       {job.status === "DRAFT" && (
-        <s-section heading="Ready to scan">
+        <s-section
+          heading={includesCustomers ? "Customer access check" : "Ready to scan"}
+        >
           <s-paragraph>
-            We'll check how many records exist, look for likely conflicts, and
-            confirm your destination store has the right permissions — nothing
-            is migrated yet.
+            {includesCustomers
+              ? "Before migration starts, we'll verify that Shopify allows this app to read customers from the source store and create them in the destination store. No customer data will be migrated during this check."
+              : "We'll check how many records exist, look for likely conflicts, and confirm your destination store has the right permissions — nothing is migrated yet."}
           </s-paragraph>
           <Form method="post" action={`/api/migrations/${job.id}/scan`}>
             <s-button type="submit" variant="primary">
-              Run scan
+              {includesCustomers ? "Check customer access" : "Run scan"}
             </s-button>
           </Form>
         </s-section>
       )}
 
       {isScanning && (
-        <s-section heading="Scanning store data">
+        <s-section
+          heading={includesCustomers ? "Checking customer access" : "Scanning store data"}
+        >
           <s-stack direction="block" gap="base">
             <s-stack direction="inline" gap="base" alignItems="center">
               <s-spinner accessibilityLabel="Scanning" />
@@ -275,8 +280,9 @@ export default function MigrationScan() {
             </s-stack>
             <IndeterminateProgressBar label="Pre-migration scan is running" />
             <s-text color="subdued">
-              Checking record counts, likely conflicts, and required
-              permissions.
+              {includesCustomers
+                ? "Verifying source and destination customer permissions before migration."
+                : "Checking record counts, likely conflicts, and required permissions."}
             </s-text>
           </s-stack>
         </s-section>
@@ -313,7 +319,7 @@ export default function MigrationScan() {
             >
               <s-paragraph>
                 {isProtectedCustomerDataError
-                  ? `This app is not approved to access customer data on Shopify. Customer exports are blocked until the app is approved for protected customer data access.`
+                  ? `Shopify is still verifying customer-data access for this app. Both stores are connected correctly, and no action is required from the source-store owner.`
                   : isAuthFailure
                   ? `One of the stores rejected Duplify's access token. Open Duplify once on ${job.source} (source), then come back here and run a new scan. Destination store: ${job.destination}.`
                   : failureReason}
@@ -322,20 +328,6 @@ export default function MigrationScan() {
                 <>
                   <s-button
                     slot="primary-action"
-                    href={reconnectHref}
-                    target="_blank"
-                  >
-                    Approve customer access on source store
-                  </s-button>
-                  <s-button
-                    slot="secondary-actions"
-                    href={protectedCustomerDataReviewUrl}
-                    target="_blank"
-                  >
-                    App-level API access
-                  </s-button>
-                  <s-button
-                    slot="secondary-actions"
                     onClick={() =>
                       scanFetcher.submit(null, {
                         method: "post",
@@ -344,7 +336,7 @@ export default function MigrationScan() {
                     }
                     {...(scanFetcher.state !== "idle" ? { loading: true } : {})}
                   >
-                    Scan again
+                    Check access again
                   </s-button>
                 </>
               ) : (
@@ -454,13 +446,6 @@ export default function MigrationScan() {
                     target="_blank"
                   >
                     Reauthorize store
-                  </s-button>
-                  <s-button
-                    variant="secondary"
-                    href={protectedCustomerDataReviewUrl}
-                    target="_blank"
-                  >
-                    Open Shopify review
                   </s-button>
                   <s-button
                     variant="secondary"
