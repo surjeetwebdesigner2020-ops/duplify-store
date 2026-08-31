@@ -112,11 +112,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const destinationNeedsReconnect = !shopIsConnected(
     freshJob.storeConnection.destinationShop,
   );
-  const protectedCustomerDataReviewUrl =
-    process.env.SHOPIFY_PARTNERS_REVIEW_URL ||
-    process.env.SHOPIFY_PROTECTED_CUSTOMER_DATA_URL ||
-    "https://partners.shopify.com/192111910/apps/410803372033/customer_data";
-
   return {
     currentShopDomain: session.shop,
     job: {
@@ -130,7 +125,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       missingPermissions: liveMissingAppPermissions(storeScopes),
       sourceNeedsReconnect,
       destinationNeedsReconnect,
-      protectedCustomerDataReviewUrl,
       needsPermissionRescan: needsPermissionRescan(
         freshJob.scanSummary as ScanSummary | null,
         freshJob.selectedResources as string[],
@@ -239,10 +233,7 @@ export default function MigrationScan() {
   const isProtectedCustomerDataError = /not approved to access the Customer object|protected-customer-data|ACCESS_DENIED/i.test(
     failureReason,
   );
-  const protectedCustomerDataReviewUrl =
-    job.protectedCustomerDataReviewUrl ||
-    "https://partners.shopify.com/192111910/apps/410803372033/customer_data";
- 
+
   return (
     <s-page heading="Pre-migration scan" inlineSize="large">
       <s-section heading="Migration">
