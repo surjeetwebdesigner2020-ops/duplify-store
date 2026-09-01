@@ -79,31 +79,36 @@ export async function runBulkQuery(
     throw new BulkOperationError("Shopify did not return a bulk operation", null);
   }
 
-  return pollUntilFinished(admin);
+  return pollUntilFinished(admin, payload.bulkOperation.id);
 }
 
-async function pollUntilFinished(admin: AdminClient): Promise<BulkOperationNode> {
+async function pollUntilFinished(
+  admin: AdminClient,
+  operationId: string,
+): Promise<BulkOperationNode> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   let intervalMs = POLL_INTERVAL_START_MS;
 
   while (Date.now() < deadline) {
-    const result = await admin.graphql<CurrentBulkOperationResponse>(
+    const result = await admin.graphql<{ node: BulkOperationNode | null }>(
       `#graphql
-      query duplifyCurrentBulkOperation {
-        currentBulkOperation {
+      query duplifyBulkOperationById($id: ID!) {
+        node(id: $id) {
+          ... on BulkOperation {
           id
           status
           errorCode
           objectCount
           url
           partialDataUrl
+          }
         }
       }`,
-      undefined,
+      { id: operationId },
       5,
     );
 
-    const op = result.currentBulkOperation;
+    const op = result.node;
     if (!op) {
       throw new BulkOperationError("No bulk operation is running", null);
     }

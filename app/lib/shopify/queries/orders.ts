@@ -28,6 +28,7 @@ export const BULK_ORDERS_QUERY = `
         lineItems {
           edges {
             node {
+              id
               title
               quantity
               sku

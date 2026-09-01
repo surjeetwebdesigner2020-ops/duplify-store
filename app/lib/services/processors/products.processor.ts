@@ -243,7 +243,7 @@ async function processProductItem(
   try {
     const existing = await destAdmin.graphql<ProductByHandleResponse>(
       PRODUCT_BY_HANDLE_QUERY,
-      { query: `handle:'${payload.parent.handle.replace(/'/g, "")}'` },
+      { query: `handle:${JSON.stringify(payload.parent.handle)}` },
       5,
     );
     existingNode = existing.products.edges[0]?.node ?? null;

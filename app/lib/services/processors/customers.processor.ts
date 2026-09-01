@@ -233,8 +233,8 @@ async function processCustomerItem(
           CUSTOMER_BY_EMAIL_QUERY,
           {
             query: customer.email
-              ? `email:'${customer.email.replace(/'/g, "")}'`
-              : `phone:'${customer.phone!.replace(/'/g, "")}'`,
+              ? `email:${JSON.stringify(customer.email)}`
+              : `phone:${JSON.stringify(customer.phone!)}`,
           },
           5,
         ),

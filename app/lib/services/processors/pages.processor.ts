@@ -92,7 +92,7 @@ export async function runPagesStage(job: MigrationJobWithConnection): Promise<vo
     try {
       const existing = await destAdmin.graphql<PageByHandleResponse>(
         PAGE_BY_HANDLE_QUERY,
-        { query: `handle:'${page.handle.replace(/'/g, "")}'` },
+        { query: `handle:${JSON.stringify(page.handle)}` },
         5,
       );
       existingDestinationId = existing.pages.edges[0]?.node.id ?? null;

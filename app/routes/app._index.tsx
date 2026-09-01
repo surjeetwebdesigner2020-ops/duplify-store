@@ -25,10 +25,10 @@ import { HeroBanner } from "../components/dashboard/HeroBanner";
 import { MigrationList } from "../components/dashboard/MigrationList";
 import { EmptyState } from "../components/shared/EmptyState";
 
-// Theme migration is available when Shopify grants read_themes/write_themes
-// to the connected stores. The pre-migration scan remains the authority and
-// blocks safely when either store has not granted the required scope.
-const THEME_MIGRATION_ENABLED = true;
+// Shopify requires a separate theme-modification exemption in addition to
+// read_themes/write_themes. Keep this out of Full migration until that
+// exemption is granted, otherwise an otherwise healthy Full job fails.
+const THEME_MIGRATION_ENABLED = false;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -264,7 +264,6 @@ const ALL_RESOURCES = [
   "metaobjects",
   "discounts",
   "orders",
-  "theme",
 ];
 
 const TYPE_TO_RESOURCES: Record<string, string[]> = {

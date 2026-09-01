@@ -34,7 +34,16 @@ export async function ensureBlogItems(job: MigrationJobWithConnection): Promise<
   }
 
   const grouped = await collectGroupedBulkResults(op.url);
-  const rows = grouped.map((record) => {
+  const validBlogs = grouped.filter((record) => {
+    const parent = record.parent;
+    return (
+      typeof parent.id === "string" &&
+      parent.id.startsWith("gid://shopify/Blog/") &&
+      typeof parent.title === "string" &&
+      typeof parent.handle === "string"
+    );
+  });
+  const rows = validBlogs.map((record) => {
     const blog = record.parent as unknown as { id: string; title: string; handle: string; templateSuffix: string | null };
     const articles = (record.childrenByField.Article ?? []) as unknown as Array<{
       id: string;
@@ -125,7 +134,7 @@ export async function runBlogsStage(job: MigrationJobWithConnection): Promise<vo
       try {
         const existing = await destAdmin.graphql<BlogByHandleResponse>(
           BLOG_BY_HANDLE_QUERY,
-          { query: `handle:'${blog.handle.replace(/'/g, "")}'` },
+          { query: `handle:${JSON.stringify(blog.handle)}` },
           5,
         );
         existingId = existing.blogs.edges[0]?.node.id ?? null;

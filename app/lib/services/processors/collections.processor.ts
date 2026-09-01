@@ -129,7 +129,7 @@ async function processCollectionItem(
     try {
       const existing = await destAdmin.graphql<CollectionByHandleResponse>(
         COLLECTION_BY_HANDLE_QUERY,
-        { query: `handle:'${collection.handle.replace(/'/g, "")}'` },
+        { query: `handle:${JSON.stringify(collection.handle)}` },
         5,
       );
       existingDestinationId = existing.collections.edges[0]?.node.id ?? null;
