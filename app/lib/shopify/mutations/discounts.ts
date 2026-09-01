@@ -7,6 +7,15 @@ export const DISCOUNT_CODE_BASIC_CREATE_MUTATION = `#graphql
   }
 `;
 
+export const DISCOUNT_CODE_BASIC_UPDATE_MUTATION = `#graphql
+  mutation duplifyDiscountCodeBasicUpdate($id: ID!, $basicCodeDiscount: DiscountCodeBasicInput!) {
+    discountCodeBasicUpdate(id: $id, basicCodeDiscount: $basicCodeDiscount) {
+      codeDiscountNode { id }
+      userErrors { field message }
+    }
+  }
+`;
+
 export interface DiscountCodeBasicInput {
   title: string;
   code: string;

@@ -1,7 +1,7 @@
 import db from "../../../db.server";
 import { createAdminClient } from "../../shopify/admin-client";
-import { DISCOUNT_CODE_NODES_QUERY } from "../../shopify/queries/discounts";
-import { DISCOUNT_CODE_BASIC_CREATE_MUTATION, type DiscountCodeBasicInput } from "../../shopify/mutations/discounts";
+import { DISCOUNT_CODE_BY_CODE_QUERY, DISCOUNT_CODE_NODES_QUERY } from "../../shopify/queries/discounts";
+import { DISCOUNT_CODE_BASIC_CREATE_MUTATION, DISCOUNT_CODE_BASIC_UPDATE_MUTATION, type DiscountCodeBasicInput } from "../../shopify/mutations/discounts";
 import { getLiveMapping, saveMapping } from "../idMapping.service";
 import { isMigrationCancelled, logEvent } from "../migrationJob.service";
 import type { DiscountBulkPayload } from "../types";
@@ -85,6 +85,12 @@ export async function ensureDiscountItems(job: MigrationJobWithConnection): Prom
 interface DiscountCreateResponse {
   discountCodeBasicCreate: { codeDiscountNode: { id: string } | null; userErrors: Array<{ field: string[]; message: string }> };
 }
+interface DiscountUpdateResponse {
+  discountCodeBasicUpdate: { codeDiscountNode: { id: string } | null; userErrors: Array<{ field: string[]; message: string }> };
+}
+interface DiscountByCodeResponse {
+  codeDiscountNodeByCode: { id: string } | null;
+}
 
 export async function runDiscountsStage(job: MigrationJobWithConnection): Promise<void> {
   await ensureDiscountItems(job);
@@ -127,14 +133,32 @@ export async function runDiscountsStage(job: MigrationJobWithConnection): Promis
     };
 
     try {
-      const result = await destAdmin.graphql<DiscountCreateResponse>(DISCOUNT_CODE_BASIC_CREATE_MUTATION, { basicCodeDiscount: input }, 10);
-      if (result.discountCodeBasicCreate.userErrors.length > 0 || !result.discountCodeBasicCreate.codeDiscountNode) {
-        const message = joinUserErrors(result.discountCodeBasicCreate?.userErrors, "Unknown discountCodeBasicCreate error");
+      const existing = await destAdmin.graphql<DiscountByCodeResponse>(
+        DISCOUNT_CODE_BY_CODE_QUERY,
+        { code: discount.code },
+        5,
+      );
+      const existingId = existing.codeDiscountNodeByCode?.id ?? null;
+      const conflictStrategy = (job.conflictStrategy as Record<string, string>).discounts ?? "SKIP";
+      if (existingId && conflictStrategy === "SKIP") {
+        await db.migrationItem.update({ where: { id: item.id }, data: { status: "SKIPPED", destinationId: existingId, errorMessage: "Discount code already exists on the destination store" } });
+        continue;
+      }
+
+      const outcome = existingId && conflictStrategy !== "CREATE_NEW"
+        ? (await destAdmin.graphql<DiscountUpdateResponse>(DISCOUNT_CODE_BASIC_UPDATE_MUTATION, { id: existingId, basicCodeDiscount: input }, 10)).discountCodeBasicUpdate
+        : (await destAdmin.graphql<DiscountCreateResponse>(DISCOUNT_CODE_BASIC_CREATE_MUTATION, {
+            basicCodeDiscount: existingId
+              ? { ...input, code: `${input.code}-COPY-${Date.now().toString(36)}` }
+              : input,
+          }, 10)).discountCodeBasicCreate;
+      if (outcome.userErrors.length > 0 || !outcome.codeDiscountNode) {
+        const message = joinUserErrors(outcome.userErrors, "Unknown discount mutation error");
         await db.migrationItem.update({ where: { id: item.id }, data: { status: "FAILED", errorMessage: message } });
         await logEvent(job.id, "ERROR", message, { itemId: item.id });
         continue;
       }
-      const destinationId = result.discountCodeBasicCreate.codeDiscountNode.id;
+      const destinationId = outcome.codeDiscountNode.id;
       await saveMapping({ storeConnectionId: job.storeConnectionId, resourceType: "discount", sourceId: item.sourceId, destinationId });
       await db.migrationItem.update({ where: { id: item.id }, data: { status: "COMPLETED", destinationId, errorMessage: null } });
     } catch (error) {

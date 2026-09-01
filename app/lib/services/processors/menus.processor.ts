@@ -1,7 +1,7 @@
 import db from "../../../db.server";
 import { createAdminClient } from "../../shopify/admin-client";
 import { MENUS_QUERY, MENU_BY_HANDLE_QUERY } from "../../shopify/queries/menus";
-import { MENU_CREATE_MUTATION, type MenuItemCreateInput } from "../../shopify/mutations/menus";
+import { MENU_CREATE_MUTATION, MENU_UPDATE_MUTATION, type MenuItemCreateInput } from "../../shopify/mutations/menus";
 import { getLiveMapping, getMappingBySourceIdAnyType, saveMapping } from "../idMapping.service";
 import { isMigrationCancelled, logEvent } from "../migrationJob.service";
 import type { ConflictStrategy, MenuBulkPayload } from "../types";
@@ -53,7 +53,10 @@ interface MenuCreateResponse {
   menuCreate: { menu: { id: string; handle: string } | null; userErrors: Array<{ field: string[]; message: string }> };
 }
 interface MenuByHandleResponse {
-  menu: { id: string; handle: string } | null;
+  menus: { edges: Array<{ node: { id: string; handle: string } }> };
+}
+interface MenuMutationResponse {
+  menuUpdate: { menu: { id: string; handle: string } | null; userErrors: Array<{ field: string[]; message: string }> };
 }
 
 export async function runMenusStage(job: MigrationJobWithConnection): Promise<void> {
@@ -80,15 +83,12 @@ export async function runMenusStage(job: MigrationJobWithConnection): Promise<vo
       continue;
     }
 
+    let existingMenu: { id: string; handle: string } | null = null;
     try {
-      const existing = await destAdmin.graphql<MenuByHandleResponse>(MENU_BY_HANDLE_QUERY, { handle: menu.handle }, 5);
-      if (existing.menu && conflictStrategy === "SKIP") {
+      const existing = await destAdmin.graphql<MenuByHandleResponse>(MENU_BY_HANDLE_QUERY, undefined, 5);
+      existingMenu = existing.menus.edges.find((edge) => edge.node.handle === menu.handle)?.node ?? null;
+      if (existingMenu && conflictStrategy === "SKIP") {
         await db.migrationItem.update({ where: { id: item.id }, data: { status: "SKIPPED", errorMessage: "Menu with this handle already exists on the destination store" } });
-        continue;
-      }
-      if (existing.menu && conflictStrategy !== "CREATE_NEW") {
-        await saveMapping({ storeConnectionId, resourceType: "menu", sourceId: item.sourceId, destinationId: existing.menu.id });
-        await db.migrationItem.update({ where: { id: item.id }, data: { status: "COMPLETED", destinationId: existing.menu.id, errorMessage: null } });
         continue;
       }
     } catch (error) {
@@ -108,6 +108,19 @@ export async function runMenusStage(job: MigrationJobWithConnection): Promise<vo
     const handle = menu.handle === "main-menu" || menu.handle === "footer" ? `${menu.handle}-copy-${Date.now().toString(36)}` : menu.handle;
 
     try {
+      if (existingMenu && conflictStrategy !== "CREATE_NEW") {
+        const updated = await destAdmin.graphql<MenuMutationResponse>(
+          MENU_UPDATE_MUTATION,
+          { id: existingMenu.id, title: menu.title, handle: menu.handle, items },
+          15,
+        );
+        if (updated.menuUpdate.userErrors.length > 0 || !updated.menuUpdate.menu) {
+          throw new Error(joinUserErrors(updated.menuUpdate.userErrors, "Unknown menuUpdate error"));
+        }
+        await saveMapping({ storeConnectionId, resourceType: "menu", sourceId: item.sourceId, destinationId: existingMenu.id, sourceHandle: menu.handle, destinationHandle: updated.menuUpdate.menu.handle });
+        await db.migrationItem.update({ where: { id: item.id }, data: { status: "COMPLETED", destinationId: existingMenu.id, errorMessage: null } });
+        continue;
+      }
       const result = await destAdmin.graphql<MenuCreateResponse>(MENU_CREATE_MUTATION, { title: menu.title, handle, items }, 15);
       if (result.menuCreate.userErrors.length > 0 || !result.menuCreate.menu) {
         const message = joinUserErrors(result.menuCreate?.userErrors, "Unknown menuCreate error");

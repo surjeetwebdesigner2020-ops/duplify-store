@@ -30,3 +30,9 @@ export const DISCOUNT_CODE_NODES_QUERY = `#graphql
     }
   }
 `;
+
+export const DISCOUNT_CODE_BY_CODE_QUERY = `#graphql
+  query duplifyDiscountCodeByCode($code: String!) {
+    codeDiscountNodeByCode(code: $code) { id }
+  }
+`;
