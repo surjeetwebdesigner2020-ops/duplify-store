@@ -131,6 +131,20 @@ async function runStages(migrationJobId: string): Promise<void> {
       }
       const message =
         error instanceof Error ? error.message : String(error);
+      const isThemePermissionIssue =
+        stage === "theme" &&
+        /themeCreate|write_themes|Access denied.*theme|requires.*write_themes/i.test(
+          message,
+        );
+      if (isThemePermissionIssue) {
+        await logEvent(
+          migrationJobId,
+          "WARN",
+          "Theme migration skipped because the destination store lacks write_themes permission. Other migration work was still completed successfully.",
+        );
+        await recalculateJobCounters(migrationJobId);
+        continue;
+      }
       stageFailures += 1;
       await logEvent(migrationJobId, "ERROR", `Stage ${stage} failed`, {
         error: message,

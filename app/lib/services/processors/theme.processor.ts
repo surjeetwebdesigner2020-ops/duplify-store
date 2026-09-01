@@ -191,6 +191,12 @@ interface ThemeFilesDeleteResponse {
 
 const BATCH_SIZE = 20;
 
+function isThemePermissionError(message: string): boolean {
+  return /themeCreate|write_themes|Access denied.*theme|requires.*write_themes|write.*themes/i.test(
+    message,
+  );
+}
+
 export async function runThemeStage(job: MigrationJobWithConnection): Promise<void> {
   await ensureThemeItems(job);
 
@@ -223,7 +229,24 @@ export async function runThemeStage(job: MigrationJobWithConnection): Promise<vo
         job.id,
       );
     } catch (error) {
-      await fail(job.id, item.id, errMsg(error));
+      const message = errMsg(error);
+      if (isThemePermissionError(message)) {
+        await logEvent(
+          job.id,
+          "WARN",
+          "Theme migration skipped because the destination store does not have write_themes access or theme creation permission.",
+        );
+        await db.migrationItem.update({
+          where: { id: item.id },
+          data: {
+            status: "SKIPPED",
+            errorMessage:
+              "Skipped: destination store needs write_themes access to copy theme files.",
+          },
+        });
+        continue;
+      }
+      await fail(job.id, item.id, message);
       continue;
     }
 
@@ -262,6 +285,22 @@ export async function runThemeStage(job: MigrationJobWithConnection): Promise<vo
             result.themeFilesUpsert?.userErrors,
             "themeFilesUpsert failed",
           );
+          if (isThemePermissionError(message)) {
+            await logEvent(
+              job.id,
+              "WARN",
+              "Theme migration skipped because the destination store does not have write_themes access or theme creation permission.",
+            );
+            await db.migrationItem.update({
+              where: { id: item.id },
+              data: {
+                status: "SKIPPED",
+                errorMessage:
+                  "Skipped: destination store needs write_themes access to copy theme files.",
+              },
+            });
+            return;
+          }
           await logEvent(
             job.id,
             "WARN",
@@ -270,10 +309,27 @@ export async function runThemeStage(job: MigrationJobWithConnection): Promise<vo
           failedBatch = true;
         }
       } catch (error) {
+        const message = errMsg(error);
+        if (isThemePermissionError(message)) {
+          await logEvent(
+            job.id,
+            "WARN",
+            "Theme migration skipped because the destination store does not have write_themes access or theme creation permission.",
+          );
+          await db.migrationItem.update({
+            where: { id: item.id },
+            data: {
+              status: "SKIPPED",
+              errorMessage:
+                "Skipped: destination store needs write_themes access to copy theme files.",
+            },
+          });
+          return;
+        }
         await logEvent(
           job.id,
           "ERROR",
-          `Theme file batch ${i / BATCH_SIZE + 1} failed: ${errMsg(error)}`,
+          `Theme file batch ${i / BATCH_SIZE + 1} failed: ${message}`,
         );
         failedBatch = true;
       }
