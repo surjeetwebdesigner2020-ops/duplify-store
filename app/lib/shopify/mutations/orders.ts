@@ -9,7 +9,7 @@ export const DRAFT_ORDER_CREATE_MUTATION = `#graphql
 
 export interface DraftOrderInput {
   email?: string;
-  note2?: string;
+  note?: string;
   tags?: string[];
   customerId?: string;
   shippingAddress?: {

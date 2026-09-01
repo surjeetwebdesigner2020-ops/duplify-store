@@ -105,7 +105,7 @@ export async function runOrdersStage(job: MigrationJobWithConnection): Promise<v
 
     const input: DraftOrderInput = {
       email: order.email ?? undefined,
-      note2: order.note ? `Migrated from ${order.name} (Duplify Store): ${order.note}` : `Migrated from ${order.name} (Duplify Store)`,
+      note: order.note ? `Migrated from ${order.name} (Duplify Store): ${order.note}` : `Migrated from ${order.name} (Duplify Store)`,
       tags: order.tags,
       customerId,
       shippingAddress: order.shippingAddress

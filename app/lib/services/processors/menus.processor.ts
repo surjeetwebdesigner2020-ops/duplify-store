@@ -96,8 +96,32 @@ export async function runMenusStage(job: MigrationJobWithConnection): Promise<vo
       continue;
     }
 
+    // Customer-account pages are generated per shop and their resource IDs
+    // cannot be copied to another shop. Shopify creates/manages that menu on
+    // the destination when customer accounts are enabled.
+    const portableMenuItems = menu.items.filter(
+      (menuItem) => menuItem.type !== "CUSTOMER_ACCOUNT_PAGE",
+    );
+    if (portableMenuItems.length === 0 && menu.items.length > 0) {
+      await db.migrationItem.update({
+        where: { id: item.id },
+        data: {
+          status: "SKIPPED",
+          errorMessage:
+            "Shopify manages this customer-account menu separately on each store",
+        },
+      });
+      await logEvent(
+        job.id,
+        "INFO",
+        `Skipped Shopify-managed customer account menu "${menu.title}"`,
+        { sourceId: item.sourceId },
+      );
+      continue;
+    }
+
     const items: MenuItemCreateInput[] = [];
-    for (const menuItem of menu.items) {
+    for (const menuItem of portableMenuItems) {
       let resourceId = menuItem.resourceSourceId ?? undefined;
       if (resourceId) {
         resourceId = (await getMappingBySourceIdAnyType(storeConnectionId, resourceId)) ?? resourceId;
