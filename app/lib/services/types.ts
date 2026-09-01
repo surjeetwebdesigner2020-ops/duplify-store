@@ -166,16 +166,41 @@ export interface MenuBulkPayload {
   }>;
 }
 
-export interface DiscountBulkPayload {
-  id: string;
-  title: string;
-  code: string | null;
-  startsAt: string;
-  endsAt: string | null;
-  valueType: "PERCENTAGE" | "FIXED_AMOUNT";
-  value: number;
-  appliesOncePerCustomer: boolean;
-}
+export type DiscountBulkPayload =
+  | {
+      id: string;
+      title: string;
+      code: string | null;
+      startsAt: string;
+      endsAt: string | null;
+      appliesOncePerCustomer: boolean;
+      discountType: "BASIC";
+      valueType: "PERCENTAGE" | "FIXED_AMOUNT";
+      value: number;
+    }
+  | {
+      id: string;
+      title: string;
+      code: string | null;
+      startsAt: string;
+      endsAt: string | null;
+      appliesOncePerCustomer: boolean;
+      discountType: "FREE_SHIPPING";
+      minimumSubtotal: number | null;
+      maximumShippingPrice: number | null;
+    }
+  | {
+      id: string;
+      title: string;
+      code: string | null;
+      startsAt: string;
+      endsAt: string | null;
+      appliesOncePerCustomer: boolean;
+      discountType: "BXGY";
+      customerBuysQuantity: number;
+      customerGetsQuantity: number;
+      customerGetsPercentage: number;
+    };
 
 export interface OrderBulkPayload {
   id: string;

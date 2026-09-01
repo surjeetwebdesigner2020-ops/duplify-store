@@ -1,7 +1,3 @@
-// Only DiscountCodeBasic (percentage/fixed-amount-off code discounts) is
-// migrated — Shopify's discount schema has many variants (BXGY, free
-// shipping, automatic discounts); those are out of scope for this pass and
-// are reported as "unsupported" rather than silently dropped.
 export const DISCOUNT_CODE_NODES_QUERY = `#graphql
   query duplifyDiscountCodeNodes($after: String) {
     codeDiscountNodes(first: 50, after: $after) {
@@ -20,6 +16,41 @@ export const DISCOUNT_CODE_NODES_QUERY = `#graphql
                 value {
                   ... on DiscountPercentage { percentage }
                   ... on DiscountAmount { amount { amount } }
+                }
+              }
+            }
+            ... on DiscountCodeFreeShipping {
+              title
+              startsAt
+              endsAt
+              appliesOncePerCustomer
+              codes(first: 1) { edges { node { code } } }
+              minimumRequirement {
+                ... on DiscountMinimumSubtotal {
+                  greaterThanOrEqualToSubtotal { amount }
+                }
+              }
+              maximumShippingPrice { amount }
+            }
+            ... on DiscountCodeBxgy {
+              title
+              startsAt
+              endsAt
+              appliesOncePerCustomer
+              codes(first: 1) { edges { node { code } } }
+              customerBuys {
+                value {
+                  ... on DiscountQuantity { quantity }
+                }
+              }
+              customerGets {
+                value {
+                  ... on DiscountOnQuantity {
+                    effect {
+                      ... on DiscountPercentage { percentage }
+                    }
+                    quantity { quantity }
+                  }
                 }
               }
             }
