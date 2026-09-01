@@ -430,7 +430,7 @@ export default function MigrationProgress() {
                   </s-link>{" "}
                   or download the{" "}
                   <s-link
-                    href={`/api/migrations/${job.id}/errors.csv`}
+                    href={`/api/migrations/${job.id}/errors/csv`}
                     target="_blank"
                   >
                     error report
@@ -489,7 +489,7 @@ export default function MigrationProgress() {
           {job.failedRecords > 0 && (
             <s-button
               slot="secondary-actions"
-              href={`/api/migrations/${job.id}/errors.csv`}
+              href={`/api/migrations/${job.id}/errors/csv`}
               target="_blank"
             >
               Download error report (CSV)

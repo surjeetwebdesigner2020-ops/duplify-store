@@ -349,7 +349,7 @@ export default function MigrationScan() {
                   </s-button>
                   <s-button
                     slot="secondary-actions"
-                    href={`/api/migrations/${job.id}/errors.csv`}
+                    href={`/api/migrations/${job.id}/errors/csv`}
                     target="_blank"
                   >
                     Download error report

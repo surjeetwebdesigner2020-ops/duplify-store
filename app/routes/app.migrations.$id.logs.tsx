@@ -127,7 +127,7 @@ export default function MigrationLogs() {
       </s-section>
 
       <s-section slot="aside" heading="Export">
-        <s-button href={`/api/migrations/${jobId}/errors.csv`} variant="tertiary" target="_blank">
+        <s-button href={`/api/migrations/${jobId}/errors/csv`} variant="tertiary" target="_blank">
           Download error report (CSV)
         </s-button>
       </s-section>

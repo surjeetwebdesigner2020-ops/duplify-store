@@ -25,10 +25,10 @@ import { HeroBanner } from "../components/dashboard/HeroBanner";
 import { MigrationList } from "../components/dashboard/MigrationList";
 import { EmptyState } from "../components/shared/EmptyState";
 
-// Shopify requires a separate theme-modification exemption in addition to
-// read_themes/write_themes. Keep this out of Full migration until that
-// exemption is granted, otherwise an otherwise healthy Full job fails.
-const THEME_MIGRATION_ENABLED = false;
+// Theme migration is enabled for full-copy flows once the Shopify theme
+// exemption is in place. The app already handles the theme export/import flow
+// and creates unpublished destination themes automatically when needed.
+const THEME_MIGRATION_ENABLED = true;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -262,6 +262,7 @@ const ALL_RESOURCES = [
   "blogs",
   "menus",
   "metaobjects",
+  "theme",
   "discounts",
   "orders",
 ];
@@ -317,13 +318,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     selectedResources = TYPE_TO_RESOURCES[type] ?? [];
   }
   selectedResources = includeProductMetadata(selectedResources);
-
-  if (!THEME_MIGRATION_ENABLED && selectedResources.includes("theme")) {
-    return {
-      error:
-        "Theme migration is temporarily unavailable while Shopify approval is pending. Other store data can still be migrated.",
-    };
-  }
 
   if (!storeConnectionId || selectedResources.length === 0) {
     return {
@@ -453,6 +447,7 @@ const CUSTOM_RESOURCE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "blogs", label: "Blogs & articles" },
   { value: "menus", label: "Menus" },
   { value: "metaobjects", label: "Metaobject entries" },
+  { value: "theme", label: "Theme files" },
   { value: "discounts", label: "Discounts (basic codes only)" },
   { value: "orders", label: "Orders (recreated as draft orders)" },
 ];

@@ -27,22 +27,15 @@ export default function Documentation() {
       </s-section>
 
       <s-section heading="Theme migration" id="theme-migration">
-        <s-banner
-          tone="warning"
-          heading="Temporarily unavailable while Shopify approval is pending"
-        >
-          <s-paragraph>
-            Shopify requires a protected permission before a public app can
-            create or edit even an unpublished destination theme. Until
-            Shopify approves Duplify’s theme permission, Full store migration
-            excludes theme files so the rest of your migration can complete
-            successfully.
-          </s-paragraph>
-        </s-banner>
         <s-paragraph>
-          When approval is available, Duplify will create an unpublished theme
-          only. It never publishes or replaces your live theme automatically;
-          you review and publish it yourself from Online Store → Themes.
+          Full store migration now includes theme files. Duplify creates an
+          unpublished destination theme automatically when needed and copies the
+          source theme into it, leaving your live theme untouched until you
+          publish it from Online Store → Themes.
+        </s-paragraph>
+        <s-paragraph>
+          Only migrate themes you are licensed to use, and be aware that paid
+          theme licenses still need to be re-purchased on the destination store.
         </s-paragraph>
       </s-section>
 
