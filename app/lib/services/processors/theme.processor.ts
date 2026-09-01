@@ -46,6 +46,16 @@ interface ThemeByIdResponse {
   node: ThemeFilesNode | null;
 }
 
+function normalizeThemeSourceId(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (!trimmed.startsWith("gid://shopify/")) {
+    return undefined;
+  }
+  return trimmed;
+}
+
 export async function ensureThemeItems(job: MigrationJobWithConnection): Promise<void> {
   const existing = await db.migrationItem.count({
     where: { migrationJobId: job.id, resourceType: "theme" },
@@ -59,8 +69,17 @@ export async function ensureThemeItems(job: MigrationJobWithConnection): Promise
   );
 
   const sourceAdmin = createAdminClient(job.storeConnection.sourceShop);
-  const chosenThemeId = (job.conflictStrategy as Record<string, unknown>)
-    .__themeSourceId as string | undefined;
+  const chosenThemeId = normalizeThemeSourceId(
+    (job.conflictStrategy as Record<string, unknown>)
+      .__themeSourceId as string | undefined,
+  );
+  if (chosenThemeId !== undefined) {
+    await logEvent(
+      job.id,
+      "INFO",
+      `Using selected source theme ${chosenThemeId} for theme export`,
+    );
+  }
 
   let after: string | null = null;
   let themeId: string | null = null;
@@ -88,9 +107,20 @@ export async function ensureThemeItems(job: MigrationJobWithConnection): Promise
     if (!theme) {
       await logEvent(
         job.id,
-        "INFO",
-        "Source theme not found (it may have been deleted since the migration was created)",
+        "WARN",
+        "Selected source theme is no longer available; falling back to the live theme for export",
       );
+      if (chosenThemeId) {
+        // The source theme may have been deleted or the ID may be stale. Keep the
+        // migration moving by exporting the live theme instead of failing the stage.
+        return await ensureThemeItems({
+          ...job,
+          conflictStrategy: {
+            ...((job.conflictStrategy as Record<string, unknown>) ?? {}),
+            __themeSourceId: undefined,
+          },
+        });
+      }
       return;
     }
     themeId = theme.id;

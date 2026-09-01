@@ -501,6 +501,14 @@ export default function MigrationProgress() {
           >
             View logs
           </s-button>
+          <ConfirmDestructiveModal
+            id="delete-migration-history-modal"
+            heading="Remove this migration from history?"
+            message="This deletes the job, its logs, and any stored migration records from Duplify history. Already-created Shopify records stay in place."
+            confirmLabel="Remove from history"
+            triggerLabel="Remove from history"
+            formAction={`/api/migrations/${job.id}/delete`}
+          />
         </s-button-group>
       </s-section>
     </s-page>
