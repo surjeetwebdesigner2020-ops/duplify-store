@@ -164,6 +164,29 @@ interface DiscountByCodeResponse {
   codeDiscountNodeByCode: { id: string } | null;
 }
 
+function isDiscountSkippableError(message: string): boolean {
+  return /already exists on the destination|not supported|unsupported|invalid code|code is required|requires.*code|customer gets.*invalid|customer selection.*invalid|minimum requirement|maximum shipping price|value.*required|quantity.*required|cannot.*discount/i.test(
+    message,
+  );
+}
+
+async function skipDiscountItem(
+  job: MigrationJobWithConnection,
+  itemId: string,
+  message: string,
+  destinationId?: string | null,
+): Promise<void> {
+  await db.migrationItem.update({
+    where: { id: itemId },
+    data: {
+      status: "SKIPPED",
+      destinationId: destinationId ?? null,
+      errorMessage: message,
+    },
+  });
+  await logEvent(job.id, "WARN", `Discount skipped: ${message}`, { itemId });
+}
+
 export async function runDiscountsStage(job: MigrationJobWithConnection): Promise<void> {
   await ensureDiscountItems(job);
 
@@ -298,6 +321,10 @@ export async function runDiscountsStage(job: MigrationJobWithConnection): Promis
         : ((await destAdmin.graphql<DiscountCreateResponse>(createMutation, createVariables, 10))[createResultKey] ?? { codeDiscountNode: null, userErrors: [] });
       if (outcome.userErrors.length > 0 || !outcome.codeDiscountNode) {
         const message = joinUserErrors(outcome.userErrors, "Unknown discount mutation error");
+        if (isDiscountSkippableError(message)) {
+          await skipDiscountItem(job, item.id, message, existingId ?? null);
+          continue;
+        }
         await db.migrationItem.update({ where: { id: item.id }, data: { status: "FAILED", errorMessage: message } });
         await logEvent(job.id, "ERROR", message, { itemId: item.id });
         continue;
@@ -307,6 +334,10 @@ export async function runDiscountsStage(job: MigrationJobWithConnection): Promis
       await db.migrationItem.update({ where: { id: item.id }, data: { status: "COMPLETED", destinationId, errorMessage: null } });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (isDiscountSkippableError(message)) {
+        await skipDiscountItem(job, item.id, message, null);
+        continue;
+      }
       await db.migrationItem.update({ where: { id: item.id }, data: { status: "FAILED", errorMessage: message } });
     }
   }
