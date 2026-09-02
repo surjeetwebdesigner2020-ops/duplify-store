@@ -14,6 +14,7 @@ import { ProtectedCustomerDataBanner } from "../components/dashboard/ProtectedCu
 import { Pill } from "../components/dashboard/Pill";
 import { IndeterminateProgressBar } from "../components/dashboard/IndeterminateProgressBar";
 import { CsvDownloadLink } from "../components/shared/CsvDownloadLink";
+import { ThemeZipDownloadLink } from "../components/shared/ThemeZipDownloadLink";
 import { ConfirmDestructiveModal } from "../components/shared/ConfirmDestructiveModal";
 import { stagesForJob } from "../lib/services/orchestrator.service";
 import type { ScanSummary } from "../lib/services/scan.service";
@@ -429,6 +430,12 @@ export default function MigrationProgress() {
               estimatedRemainingSeconds={job.estimatedRemainingSeconds}
               isActive={isActive}
             >
+              {sheet.resourceType === "theme" && sheet.skipped > 0 && (
+                <ThemeZipDownloadLink
+                  href={`/api/migrations/${job.id}/theme/zip`}
+                  filename={`${job.id}-theme.zip`}
+                />
+              )}
               {sheet.failed > 0 && (
                 <s-paragraph>
                   {sheet.failed} {sheet.label.toLowerCase()} failed —{" "}
