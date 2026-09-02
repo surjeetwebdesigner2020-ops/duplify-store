@@ -4,6 +4,7 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { migrationJobForOwnerWhere } from "../lib/services/storeConnection.service";
 import { ProtectedCustomerDataBanner } from "../components/dashboard/ProtectedCustomerDataBanner";
+import { CsvDownloadLink } from "../components/shared/CsvDownloadLink";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -132,9 +133,9 @@ export default function MigrationLogs() {
       </s-section>
 
       <s-section slot="aside" heading="Export">
-        <a href={`/api/migrations/${jobId}/errors/csv?${errorReportQuery.toString()}`} download={`migration-${jobId}-errors.csv`}>
+        <CsvDownloadLink href={`/api/migrations/${jobId}/errors/csv?${errorReportQuery.toString()}`} filename={`migration-${jobId}-errors.csv`}>
           Download error report (CSV)
-        </a>
+        </CsvDownloadLink>
       </s-section>
     </s-page>
   );

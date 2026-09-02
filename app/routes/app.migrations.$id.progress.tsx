@@ -13,6 +13,7 @@ import { PermissionBanner } from "../components/dashboard/PermissionBanner";
 import { ProtectedCustomerDataBanner } from "../components/dashboard/ProtectedCustomerDataBanner";
 import { Pill } from "../components/dashboard/Pill";
 import { IndeterminateProgressBar } from "../components/dashboard/IndeterminateProgressBar";
+import { CsvDownloadLink } from "../components/shared/CsvDownloadLink";
 import { ConfirmDestructiveModal } from "../components/shared/ConfirmDestructiveModal";
 import { stagesForJob } from "../lib/services/orchestrator.service";
 import type { ScanSummary } from "../lib/services/scan.service";
@@ -435,12 +436,9 @@ export default function MigrationProgress() {
                     view logs
                   </s-link>{" "}
                   or download the{" "}
-                  <a
-                    href={errorReportUrl}
-                    download={`migration-${job.id}-errors.csv`}
-                  >
+                  <CsvDownloadLink href={errorReportUrl} filename={`migration-${job.id}-errors.csv`}>
                     error report
-                  </a>
+                  </CsvDownloadLink>
                   .
                 </s-paragraph>
               )}
@@ -493,13 +491,13 @@ export default function MigrationProgress() {
           )}
 
           {job.failedRecords > 0 && (
-            <a
+            <CsvDownloadLink
               slot="secondary-actions"
               href={errorReportUrl}
-              download={`migration-${job.id}-errors.csv`}
+              filename={`migration-${job.id}-errors.csv`}
             >
               Download error report (CSV)
-            </a>
+            </CsvDownloadLink>
           )}
           <s-button
             slot="secondary-actions"

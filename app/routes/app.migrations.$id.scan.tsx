@@ -26,6 +26,7 @@ import {
   refreshShopScopesIfStale,
 } from "../lib/services/storeConnection.service";
 import { shopIsConnected } from "../lib/shopify/scopes";
+import { CsvDownloadLink } from "../components/shared/CsvDownloadLink";
 
 // Recover scans that were queued while no worker was online.
 const recoveringScans = new Set<string>();
@@ -352,13 +353,13 @@ export default function MigrationScan() {
                   >
                     View logs
                   </s-button>
-                  <a
+                  <CsvDownloadLink
                     slot="secondary-actions"
                     href={errorReportUrl}
-                    download={`migration-${job.id}-errors.csv`}
+                    filename={`migration-${job.id}-errors.csv`}
                   >
                     Download error report
-                  </a>
+                  </CsvDownloadLink>
                 </>
               )}
             </s-banner>
