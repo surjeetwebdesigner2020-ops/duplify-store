@@ -128,9 +128,9 @@ export default function MigrationLogs() {
       </s-section>
 
       <s-section slot="aside" heading="Export">
-        <s-button href={`/api/migrations/${jobId}/errors/csv?shop=${encodeURIComponent(currentShopDomain)}`} variant="tertiary" target="_blank">
+        <a href={`/api/migrations/${jobId}/errors/csv?shop=${encodeURIComponent(currentShopDomain)}`} download={`migration-${jobId}-errors.csv`}>
           Download error report (CSV)
-        </s-button>
+        </a>
       </s-section>
     </s-page>
   );

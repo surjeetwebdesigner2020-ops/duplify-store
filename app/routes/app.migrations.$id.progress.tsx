@@ -430,12 +430,12 @@ export default function MigrationProgress() {
                     view logs
                   </s-link>{" "}
                   or download the{" "}
-                  <s-link
+                  <a
                     href={`/api/migrations/${job.id}/errors/csv?shop=${encodeURIComponent(currentShopDomain)}`}
-                    target="_blank"
+                    download={`migration-${job.id}-errors.csv`}
                   >
                     error report
-                  </s-link>
+                  </a>
                   .
                 </s-paragraph>
               )}
@@ -488,13 +488,13 @@ export default function MigrationProgress() {
           )}
 
           {job.failedRecords > 0 && (
-            <s-button
+            <a
               slot="secondary-actions"
               href={`/api/migrations/${job.id}/errors/csv?shop=${encodeURIComponent(currentShopDomain)}`}
-              target="_blank"
+              download={`migration-${job.id}-errors.csv`}
             >
               Download error report (CSV)
-            </s-button>
+            </a>
           )}
           <s-button
             slot="secondary-actions"

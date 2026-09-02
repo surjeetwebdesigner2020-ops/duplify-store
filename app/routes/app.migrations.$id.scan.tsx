@@ -347,13 +347,13 @@ export default function MigrationScan() {
                   >
                     View logs
                   </s-button>
-                  <s-button
+                  <a
                     slot="secondary-actions"
                     href={`/api/migrations/${job.id}/errors/csv?shop=${encodeURIComponent(currentShopDomain)}`}
-                    target="_blank"
+                    download={`migration-${job.id}-errors.csv`}
                   >
                     Download error report
-                  </s-button>
+                  </a>
                 </>
               )}
             </s-banner>
