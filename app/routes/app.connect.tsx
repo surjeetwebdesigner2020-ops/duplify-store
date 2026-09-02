@@ -164,6 +164,37 @@ export default function ConnectStores() {
       heading={isCompanion ? "Connection request" : "Import / Export"}
       inlineSize="large"
     >
+      {isCompanion && (
+        <s-section heading="Connection request">
+          <s-box
+            padding="base"
+            borderWidth="base"
+            borderRadius="base"
+            background="base"
+          >
+            <s-stack direction="block" gap="base">
+              <s-stack direction="block" gap="small-200">
+                <s-text type="strong">Review this connection request</s-text>
+                <s-paragraph>
+                  Source and destination stores must be different shops.
+                </s-paragraph>
+              </s-stack>
+              <s-box
+                padding="base"
+                borderWidth="base"
+                borderRadius="base"
+                background="subdued"
+              >
+                <s-text color="subdued">
+                  Open the main store to approve or decline this request, then
+                  continue the migration setup.
+                </s-text>
+              </s-box>
+            </s-stack>
+          </s-box>
+        </s-section>
+      )}
+
       {!isCompanion && (
       <s-section heading="Connect another Shopify store">
         <s-stack direction="block" gap="base">
