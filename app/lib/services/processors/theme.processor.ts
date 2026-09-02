@@ -408,15 +408,30 @@ async function resolveOrCreateDestinationTheme(
     `Creating unpublished destination theme "${createName}"`,
   );
 
-  const created = await destAdmin.graphql<ThemeCreateResponse>(
-    THEME_CREATE_MUTATION,
-    {
-      name: createName,
-      source: THEME_CREATE_BASE_ZIP_URL,
-      role: "UNPUBLISHED",
-    },
-    20,
-  );
+  let created: ThemeCreateResponse;
+  try {
+    created = await destAdmin.graphql<ThemeCreateResponse>(
+      THEME_CREATE_MUTATION,
+      {
+        name: createName,
+        source: THEME_CREATE_BASE_ZIP_URL,
+        role: "UNPUBLISHED",
+      },
+      20,
+    );
+  } catch (error) {
+    const message = errMsg(error);
+    const existingDraft = themeEdges.find((e) => e.node.role !== "MAIN")?.node;
+    if (existingDraft && isThemePermissionError(message)) {
+      await logEvent(
+        migrationJobId,
+        "WARN",
+        `Theme creation was not allowed; using existing unpublished theme "${existingDraft.name}" instead`,
+      );
+      return existingDraft.id;
+    }
+    throw error;
+  }
 
   if (
     !created.themeCreate ||
@@ -427,6 +442,15 @@ async function resolveOrCreateDestinationTheme(
       created.themeCreate?.userErrors,
       "themeCreate failed",
     );
+    const existingDraft = themeEdges.find((e) => e.node.role !== "MAIN")?.node;
+    if (existingDraft && isThemePermissionError(message)) {
+      await logEvent(
+        migrationJobId,
+        "WARN",
+        `Theme creation was not allowed; using existing unpublished theme "${existingDraft.name}" instead`,
+      );
+      return existingDraft.id;
+    }
     throw new Error(message);
   }
 
