@@ -34,10 +34,8 @@ interface DiscountCodeNodesResponse {
             value?: {
               percentage?: number;
               amount?: { amount: string };
-              discountOnQuantity?: {
-                effect?: { percentage?: number; amount?: { amount: string } };
-                quantity?: { quantity?: string | number };
-              };
+              effect?: { percentage?: number; amount?: { amount: string } };
+              quantity?: { quantity?: string | number };
             };
           };
           minimumRequirement?: { greaterThanOrEqualToSubtotal?: { amount?: string } };
@@ -96,8 +94,8 @@ export async function ensureDiscountItems(job: MigrationJobWithConnection): Prom
         }
         case "DiscountCodeBxgy": {
           const buysQuantity = cd.customerBuys?.value?.quantity ?? "1";
-          const getsQuantity = cd.customerGets?.value?.discountOnQuantity?.quantity?.quantity ?? "1";
-          const getsPercentage = cd.customerGets?.value?.discountOnQuantity?.effect?.percentage ?? 0;
+          const getsQuantity = cd.customerGets?.value?.quantity?.quantity ?? "1";
+          const getsPercentage = cd.customerGets?.value?.effect?.percentage ?? 0;
           payload = {
             id: edge.node.id,
             title: cd.title ?? "Buy X Get Y Discount",
@@ -233,9 +231,9 @@ export async function runDiscountsStage(job: MigrationJobWithConnection): Promis
           startsAt: discount.startsAt,
           endsAt: discount.endsAt ?? undefined,
           appliesOncePerCustomer: discount.appliesOncePerCustomer,
-          minimumRequirement: discount.minimumSubtotal !== null ? { subtotal: { greaterThanOrEqualToSubtotal: discount.minimumSubtotal } } : undefined,
+          minimumRequirement: discount.minimumSubtotal !== null ? { subtotal: { greaterThanOrEqualToSubtotal: String(discount.minimumSubtotal) } } : undefined,
           customerSelection: { all: true },
-          destination: { all: true },
+          destinationSelection: { all: true },
           maximumShippingPrice: discount.maximumShippingPrice !== null ? { amount: String(discount.maximumShippingPrice) } : undefined,
         };
         break;

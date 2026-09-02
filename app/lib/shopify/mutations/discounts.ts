@@ -72,10 +72,10 @@ export interface DiscountCodeFreeShippingInput {
   endsAt?: string;
   appliesOncePerCustomer: boolean;
   minimumRequirement?: {
-    subtotal?: { greaterThanOrEqualToSubtotal: number };
+    subtotal?: { greaterThanOrEqualToSubtotal: string };
   };
   customerSelection: { all: boolean };
-  destination: { all: boolean };
+  destinationSelection: { all: boolean };
   maximumShippingPrice?: { amount: string };
 }
 
