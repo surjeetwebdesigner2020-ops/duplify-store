@@ -233,8 +233,8 @@ export async function runDiscountsStage(job: MigrationJobWithConnection): Promis
           appliesOncePerCustomer: discount.appliesOncePerCustomer,
           minimumRequirement: discount.minimumSubtotal !== null ? { subtotal: { greaterThanOrEqualToSubtotal: String(discount.minimumSubtotal) } } : undefined,
           customerSelection: { all: true },
-          destinationSelection: { all: true },
-          maximumShippingPrice: discount.maximumShippingPrice !== null ? { amount: String(discount.maximumShippingPrice) } : undefined,
+          destination: { all: true },
+          maximumShippingPrice: discount.maximumShippingPrice !== null ? String(discount.maximumShippingPrice) : undefined,
         };
         break;
       }
@@ -259,7 +259,7 @@ export async function runDiscountsStage(job: MigrationJobWithConnection): Promis
             value: {
               discountOnQuantity: {
                 effect: { percentage: discount.customerGetsPercentage / 100 },
-                quantity: { quantity: String(discount.customerGetsQuantity || 1) },
+                quantity: String(discount.customerGetsQuantity || 1),
               },
             },
             items: { all: true },

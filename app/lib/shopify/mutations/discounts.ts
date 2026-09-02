@@ -75,8 +75,8 @@ export interface DiscountCodeFreeShippingInput {
     subtotal?: { greaterThanOrEqualToSubtotal: string };
   };
   customerSelection: { all: boolean };
-  destinationSelection: { all: boolean };
-  maximumShippingPrice?: { amount: string };
+  destination: { all: boolean };
+  maximumShippingPrice?: string;
 }
 
 export interface DiscountCodeBxgyInput {
@@ -93,7 +93,7 @@ export interface DiscountCodeBxgyInput {
     value: {
       discountOnQuantity: {
         effect: { percentage?: number; amount?: { amount: string } };
-        quantity: { quantity: string };
+        quantity: string;
       };
     };
     items: { all: boolean };
