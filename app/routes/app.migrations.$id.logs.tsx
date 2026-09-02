@@ -46,6 +46,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   return {
     jobId: job.id,
+    currentShopDomain: session.shop,
     source: job.storeConnection.sourceShop.shopDomain,
     destination: job.storeConnection.destinationShop.shopDomain,
     protectedCustomerDataBlocked,
@@ -66,7 +67,7 @@ const LEVEL_TONE: Record<string, "info" | "warning" | "critical" | "neutral"> = 
 };
 
 export default function MigrationLogs() {
-  const { jobId, source, destination, logs, protectedCustomerDataBlocked } = useLoaderData<typeof loader>();
+  const { jobId, currentShopDomain, source, destination, logs, protectedCustomerDataBlocked } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
 
   return (
@@ -127,7 +128,7 @@ export default function MigrationLogs() {
       </s-section>
 
       <s-section slot="aside" heading="Export">
-        <s-button href={`/api/migrations/${jobId}/errors/csv`} variant="tertiary" target="_blank">
+        <s-button href={`/api/migrations/${jobId}/errors/csv?shop=${encodeURIComponent(currentShopDomain)}`} variant="tertiary" target="_blank">
           Download error report (CSV)
         </s-button>
       </s-section>

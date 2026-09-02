@@ -201,6 +201,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     );
 
   return {
+    currentShopDomain: session.shop,
     job: {
       id: job.id,
       type: job.type,
@@ -239,7 +240,7 @@ function formatDuration(seconds: number): string {
 }
 
 export default function MigrationProgress() {
-  const { job } = useLoaderData<typeof loader>();
+  const { job, currentShopDomain } = useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
   const isActive = ACTIVE_STATUSES.has(job.status);
   const isScanning = job.status === "SCANNING";
@@ -430,7 +431,7 @@ export default function MigrationProgress() {
                   </s-link>{" "}
                   or download the{" "}
                   <s-link
-                    href={`/api/migrations/${job.id}/errors/csv`}
+                    href={`/api/migrations/${job.id}/errors/csv?shop=${encodeURIComponent(currentShopDomain)}`}
                     target="_blank"
                   >
                     error report
@@ -489,7 +490,7 @@ export default function MigrationProgress() {
           {job.failedRecords > 0 && (
             <s-button
               slot="secondary-actions"
-              href={`/api/migrations/${job.id}/errors/csv`}
+              href={`/api/migrations/${job.id}/errors/csv?shop=${encodeURIComponent(currentShopDomain)}`}
               target="_blank"
             >
               Download error report (CSV)
