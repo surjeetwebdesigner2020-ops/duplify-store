@@ -163,7 +163,7 @@ interface DiscountByCodeResponse {
 }
 
 function isDiscountSkippableError(message: string): boolean {
-  return /already exists on the destination|not supported|unsupported|invalid code|code is required|requires.*code|customer gets.*invalid|customer selection.*invalid|minimum requirement|maximum shipping price|value.*required|quantity.*required|cannot.*discount/i.test(
+  return /already exists on the destination|not supported|unsupported|invalid code|code is required|requires.*code|customer gets.*invalid|customer selection.*invalid|minimum requirement|maximum shipping price|value.*required|quantity.*required|items in.*customer|get.*cannot be set to all|cannot.*discount/i.test(
     message,
   );
 }
