@@ -119,6 +119,7 @@ const SHEET_DEFS = [
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
+  const currentHost = new URL(request.url).searchParams.get("host");
   const shop = await db.shop.findUniqueOrThrow({
     where: { shopDomain: session.shop },
   });
@@ -202,6 +203,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   return {
     currentShopDomain: session.shop,
+    currentHost,
     job: {
       id: job.id,
       type: job.type,
@@ -240,7 +242,10 @@ function formatDuration(seconds: number): string {
 }
 
 export default function MigrationProgress() {
-  const { job, currentShopDomain } = useLoaderData<typeof loader>();
+  const { job, currentShopDomain, currentHost } = useLoaderData<typeof loader>();
+  const errorReportQuery = new URLSearchParams({ shop: currentShopDomain });
+  if (currentHost) errorReportQuery.set("host", currentHost);
+  const errorReportUrl = `/api/migrations/${job.id}/errors/csv?${errorReportQuery.toString()}`;
   const revalidator = useRevalidator();
   const isActive = ACTIVE_STATUSES.has(job.status);
   const isScanning = job.status === "SCANNING";
@@ -431,7 +436,7 @@ export default function MigrationProgress() {
                   </s-link>{" "}
                   or download the{" "}
                   <a
-                    href={`/api/migrations/${job.id}/errors/csv?shop=${encodeURIComponent(currentShopDomain)}`}
+                    href={errorReportUrl}
                     download={`migration-${job.id}-errors.csv`}
                   >
                     error report
@@ -490,7 +495,7 @@ export default function MigrationProgress() {
           {job.failedRecords > 0 && (
             <a
               slot="secondary-actions"
-              href={`/api/migrations/${job.id}/errors/csv?shop=${encodeURIComponent(currentShopDomain)}`}
+              href={errorReportUrl}
               download={`migration-${job.id}-errors.csv`}
             >
               Download error report (CSV)

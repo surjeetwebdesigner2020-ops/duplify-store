@@ -7,6 +7,7 @@ import { ProtectedCustomerDataBanner } from "../components/dashboard/ProtectedCu
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
+  const currentHost = new URL(request.url).searchParams.get("host");
   const shop = await db.shop.findUniqueOrThrow({ where: { shopDomain: session.shop } });
 
   const job = await db.migrationJob.findFirst({
@@ -47,6 +48,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   return {
     jobId: job.id,
     currentShopDomain: session.shop,
+    currentHost,
     source: job.storeConnection.sourceShop.shopDomain,
     destination: job.storeConnection.destinationShop.shopDomain,
     protectedCustomerDataBlocked,
@@ -67,7 +69,9 @@ const LEVEL_TONE: Record<string, "info" | "warning" | "critical" | "neutral"> = 
 };
 
 export default function MigrationLogs() {
-  const { jobId, currentShopDomain, source, destination, logs, protectedCustomerDataBlocked } = useLoaderData<typeof loader>();
+  const { jobId, currentShopDomain, currentHost, source, destination, logs, protectedCustomerDataBlocked } = useLoaderData<typeof loader>();
+  const errorReportQuery = new URLSearchParams({ shop: currentShopDomain });
+  if (currentHost) errorReportQuery.set("host", currentHost);
   const [searchParams] = useSearchParams();
 
   return (
@@ -128,7 +132,7 @@ export default function MigrationLogs() {
       </s-section>
 
       <s-section slot="aside" heading="Export">
-        <a href={`/api/migrations/${jobId}/errors/csv?shop=${encodeURIComponent(currentShopDomain)}`} download={`migration-${jobId}-errors.csv`}>
+        <a href={`/api/migrations/${jobId}/errors/csv?${errorReportQuery.toString()}`} download={`migration-${jobId}-errors.csv`}>
           Download error report (CSV)
         </a>
       </s-section>

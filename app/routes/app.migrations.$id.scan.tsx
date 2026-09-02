@@ -32,6 +32,7 @@ const recoveringScans = new Set<string>();
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
+  const currentHost = new URL(request.url).searchParams.get("host");
   const shop = await db.shop.findUniqueOrThrow({
     where: { shopDomain: session.shop },
   });
@@ -114,6 +115,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   );
   return {
     currentShopDomain: session.shop,
+    currentHost,
     job: {
       id: freshJob.id,
       status: freshJob.status,
@@ -160,7 +162,10 @@ function formatStage(stage: string | null) {
 }
 
 export default function MigrationScan() {
-  const { job, currentShopDomain } = useLoaderData<typeof loader>();
+  const { job, currentShopDomain, currentHost } = useLoaderData<typeof loader>();
+  const errorReportQuery = new URLSearchParams({ shop: currentShopDomain });
+  if (currentHost) errorReportQuery.set("host", currentHost);
+  const errorReportUrl = `/api/migrations/${job.id}/errors/csv?${errorReportQuery.toString()}`;
   const [searchParams] = useSearchParams();
   const revalidator = useRevalidator();
   const scanFetcher = useFetcher();
@@ -349,7 +354,7 @@ export default function MigrationScan() {
                   </s-button>
                   <a
                     slot="secondary-actions"
-                    href={`/api/migrations/${job.id}/errors/csv?shop=${encodeURIComponent(currentShopDomain)}`}
+                    href={errorReportUrl}
                     download={`migration-${job.id}-errors.csv`}
                   >
                     Download error report
