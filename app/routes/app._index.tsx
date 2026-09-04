@@ -469,6 +469,7 @@ export default function Overview() {
   const hasLiveJobs = jobs.some((job) =>
     ["SCANNING", "QUEUED", "RUNNING"].includes(job.status),
   );
+  const packageError = searchParams.get("packageError");
 
   const [storeConnectionId, setStoreConnectionId] = useState(
     searchParams.get("connectionId") ?? readyConnections[0]?.id ?? "",
@@ -789,6 +790,49 @@ export default function Overview() {
 
               <s-button type="submit" variant="primary">
                 Run pre-migration scan
+              </s-button>
+            </s-stack>
+          </Form>
+        </s-section>
+      )}
+
+      {hasReadyConnection && (
+        <s-section heading="Import a migration package">
+          <Form
+            method="post"
+            action="/api/migrations/import"
+            encType="multipart/form-data"
+          >
+            <s-stack direction="block" gap="base">
+              {packageError && (
+                <s-banner tone="critical" heading="Package could not be imported">
+                  <s-paragraph>{packageError}</s-paragraph>
+                </s-banner>
+              )}
+              <s-paragraph>
+                Upload a Duplify ZIP exported from the source store. We validate it,
+                then import its records into the destination store in migration order.
+              </s-paragraph>
+              <label>
+                Destination store pair
+                <select name="storeConnectionId" defaultValue={readyConnections[0]?.id} required>
+                  {readyConnections.map((connection) => (
+                    <option key={connection.id} value={connection.id}>
+                      {connection.source} → {connection.destination}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Migration package ZIP
+                <input name="package" type="file" accept=".zip,application/zip" required />
+              </label>
+              <s-paragraph color="subdued">
+                Packages can contain customer personal data. Keep the ZIP private and
+                delete it after the migration is verified. Maximum size: 100 MB.
+              </s-paragraph>
+              <s-button type="submit" variant="primary">
+                Validate and import ZIP
               </s-button>
             </s-stack>
           </Form>

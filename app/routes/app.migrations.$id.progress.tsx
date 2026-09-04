@@ -15,6 +15,7 @@ import { Pill } from "../components/dashboard/Pill";
 import { IndeterminateProgressBar } from "../components/dashboard/IndeterminateProgressBar";
 import { CsvDownloadLink } from "../components/shared/CsvDownloadLink";
 import { ThemeZipDownloadLink } from "../components/shared/ThemeZipDownloadLink";
+import { MigrationPackageDownloadLink } from "../components/shared/MigrationPackageDownloadLink";
 import { ConfirmDestructiveModal } from "../components/shared/ConfirmDestructiveModal";
 import { stagesForJob } from "../lib/services/orchestrator.service";
 import type { ScanSummary } from "../lib/services/scan.service";
@@ -474,6 +475,12 @@ export default function MigrationProgress() {
 
       <s-section heading="Actions">
         <s-button-group>
+          {!isActive && (
+            <MigrationPackageDownloadLink
+              href={`/api/migrations/${job.id}/package`}
+              filename={`duplify-${job.source.replace(/\.myshopify\.com$/i, "")}-${job.id.slice(-8)}.zip`}
+            />
+          )}
           {retryableCount > 0 && (
             <Form
               method="post"
